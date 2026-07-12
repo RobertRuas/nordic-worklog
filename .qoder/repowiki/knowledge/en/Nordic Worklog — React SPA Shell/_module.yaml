@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: ""
+title: Nordic Worklog — React SPA Shell
+scope:
+    - .gitignore
+    - .oxlintrc.json
+    - Dockerfile
+    - docker-compose.yml
+    - index.html
+    - package.json
+    - package-lock.json
+    - vite.config.js
+    - README.md
+    - src/
+source_files: []
+depends_on: []
+related_to: []

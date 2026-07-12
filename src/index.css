@@ -1,0 +1,85 @@
+/* Design System - Nordic Worklog (Tema Nórdico Minimalista) */
+
+/* Importação da fonte Outfit do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+
+/* Definição das variáveis de cores e estilos para ambos os temas */
+:root {
+  /* Tema Light (Padrão) */
+  --bg-primary: #f4f4f5;       /* Fundo cinza bem claro */
+  --bg-secondary: #ffffff;     /* Fundo dos cartões e elementos brancos */
+  --text-primary: #18181b;     /* Texto principal escuro */
+  --text-secondary: #71717a;   /* Texto secundário/mutado */
+  --accent-color: #09090b;     /* Destaque (preto minimalista) */
+  --border-color: #e4e4e7;     /* Bordas suaves */
+  --font-main: 'Outfit', sans-serif;
+  --transition-speed: 0.25s;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:root.dark {
+  /* Tema Dark */
+  --bg-primary: #09090b;       /* Fundo principal escuro (zinc-950) */
+  --bg-secondary: #18181b;     /* Fundo secundário (zinc-900) */
+  --text-primary: #f4f4f5;     /* Texto claro */
+  --text-secondary: #a1a1aa;   /* Texto secundário mutado */
+  --accent-color: #ffffff;     /* Destaque (branco minimalista) */
+  --border-color: #27272a;     /* Bordas escuras */
+}
+
+/* Reset básico e configurações de visualização */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font-main);
+  -webkit-tap-highlight-color: transparent; /* Remove o highlight de toque no mobile */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem; /* Textos levemente menores de forma elegante */
+  line-height: 1.5;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+  overflow-x: hidden;
+}
+
+/* Garante que o container do React use 100% da altura da tela */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Utilitários globais de botões e cartões */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Efeito de transição padrão suave */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,1 @@
+React 19 with ReactDOM 19, Vite 8 (`@vitejs/plugin-react`), oxlint for linting, react-icons for iconography; dev server bound to port 3000 on host `true` via `vite.config.js`; Dockerfile + `docker-compose.yml` provided for containerised builds.

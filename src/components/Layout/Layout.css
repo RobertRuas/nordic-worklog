@@ -1,0 +1,73 @@
+/* Estilos do Layout Geral do Aplicativo */
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Cabeçalho Fixo Superior */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}
+
+.header-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 0.95rem; /* Título sutil e pequeno */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+/* Área de Conteúdo Central */
+.app-content-area {
+  flex: 1;
+  padding-top: 50px; /* Compensa a altura do Header fixo */
+  padding-bottom: calc(60px + var(--safe-area-bottom) + 16px); /* Compensa a altura do BottomNav fixo + espaçamento */
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.content-container {
+  width: 100%;
+  max-width: 600px;
+  padding: 16px;
+}
+
+/* Efeito sutil de container para cartões minimalistas em todas as páginas */
+.card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: background-color var(--transition-speed), border-color var(--transition-speed);
+}
+
+.card-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}

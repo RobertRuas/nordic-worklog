@@ -1,0 +1,1 @@
+A single-page React application for logging work entries and projects, driven by a local tab state and a global theme context.

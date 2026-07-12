@@ -1,0 +1,13 @@
+# Configuração do Docker Compose para desenvolvimento/produção do frontend
+version: '3.8'
+services:
+  app:
+    image: node:20-alpine
+    container_name: nordic_worklog_container
+    ports:
+      - "3002:3000" # Exemplo: Host 3002 -> Container 3000
+    restart: always
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"

@@ -1,0 +1,3 @@
+- Each page is a folder under `src/pages/<PascalCase>/` containing a default-exported component of the same name plus an optional `components/` subdirectory for page-local fragments.
+- Global cross-cutting concerns (theme) are exposed through a React Context provider wrapped around the app root in `main.jsx` rather than per-component state.
+- Navigation is implemented as a string-based `activeTab` state in `App.jsx` with a switch statement mapping tabs to page components instead of using a router library.
