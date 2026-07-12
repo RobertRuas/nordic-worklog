@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import Layout from './components/Layout/Layout';
 import Home from './pages/Home/Home';
 import Registros from './pages/Registros/Registros';
@@ -22,6 +22,24 @@ function App() {
   // Dados fictícios importados do arquivo centralizado de mocks
   const [projetos, setProjetos] = useState(mockProjetos);
 
+  // Ref para a função de voltar da página atual (usada pelo gesto de swipe)
+  const goBackRef = useRef(null);
+
+  // Função que as páginas chamam para registrar seu handler de voltar
+  const registerGoBack = useCallback((handler) => {
+    goBackRef.current = handler;
+  }, []);
+
+  // Função de voltar do gesto: prioriza o handler da página, senão volta para home
+  const handleSwipeBack = useCallback(() => {
+    if (goBackRef.current) {
+      goBackRef.current();
+    } else if (activeTab !== 'home') {
+      setActiveTab('home');
+      setHeaderTitle(null);
+    }
+  }, [activeTab]);
+
   // Função para trocar de aba e resetar o título dinâmico
   const trocarAba = (tab) => {
     setActiveTab(tab);
@@ -34,11 +52,11 @@ function App() {
       case 'home':
         return <Home projetos={projetos} registros={mockRegistros} emails={mockEmails} />;
       case 'registros':
-        return <Registros onTitleChange={setHeaderTitle} projetos={projetos} />;
+        return <Registros onTitleChange={setHeaderTitle} projetos={projetos} registerGoBack={registerGoBack} />;
       case 'email':
-        return <Email onTitleChange={setHeaderTitle} />;
+        return <Email onTitleChange={setHeaderTitle} registerGoBack={registerGoBack} />;
       case 'projetos':
-        return <Projetos onTitleChange={setHeaderTitle} projetos={projetos} setProjetos={setProjetos} />;
+        return <Projetos onTitleChange={setHeaderTitle} projetos={projetos} setProjetos={setProjetos} registerGoBack={registerGoBack} />;
       case 'configuracoes':
         return <Configuracoes />;
       default:
@@ -47,7 +65,7 @@ function App() {
   };
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={trocarAba} headerTitle={headerTitle}>
+    <Layout activeTab={activeTab} setActiveTab={trocarAba} headerTitle={headerTitle} onSwipeBack={handleSwipeBack}>
       {renderPage()}
     </Layout>
   );

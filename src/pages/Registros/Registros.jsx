@@ -23,7 +23,7 @@ const nomeMes = (mesNum) => {
  * @param {function} onTitleChange - Função para alterar o título do header.
  * @param {Array} projetos - Lista de projetos compartilhada do App (para o select de projeto).
  */
-export default function Registros({ onTitleChange, projetos }) {
+export default function Registros({ onTitleChange, projetos, registerGoBack }) {
   // Lista de registros (dados fictícios do arquivo centralizado)
   const [registros, setRegistros] = useState(mockRegistros);
 
@@ -33,6 +33,17 @@ export default function Registros({ onTitleChange, projetos }) {
   const [registroSelecionado, setRegistroSelecionado] = useState(null);
   // Controla se o formulário está em modo de criação
   const [modoNovo, setModoNovo] = useState(false);
+
+  // Ref para a função voltarLista (usado pelo gesto de swipe)
+  const voltarListaRef = React.useRef(null);
+
+  // Registra a função de voltar para o gesto de swipe
+  React.useEffect(() => {
+    if (registerGoBack) {
+      registerGoBack(view === 'detalhe' ? () => voltarListaRef.current?.() : null);
+    }
+    return () => { if (registerGoBack) registerGoBack(null); };
+  }, [view]);
 
   // ═══ Agrupamento dos registros em Mês > Semana ═══
   const { grupos, semanaRecente } = useMemo(() => {
@@ -142,6 +153,8 @@ export default function Registros({ onTitleChange, projetos }) {
     setView('lista');
     if (onTitleChange) onTitleChange('Registros');
   };
+  // Atualiza a ref para o gesto de swipe
+  voltarListaRef.current = voltarLista;
 
   // Salva um registro (novo ou atualizado)
   const salvarRegistro = (formAtualizado) => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import BottomNav from '../BottomNav/BottomNav';
+import useSwipeBack from '../../hooks/useSwipeBack';
 import './Layout.css';
 
 /**
@@ -8,8 +9,11 @@ import './Layout.css';
  * @param {string} activeTab - A aba atualmente ativa.
  * @param {function} setActiveTab - Função para alterar a aba ativa.
  * @param {string|null} headerTitle - Título personalizado do header (sobrescreve o padrão).
+ * @param {function} onSwipeBack - Função chamada quando o gesto de swipe (voltar) é detectado.
  */
-export default function Layout({ children, activeTab, setActiveTab, headerTitle }) {
+export default function Layout({ children, activeTab, setActiveTab, headerTitle, onSwipeBack }) {
+  // Hook de gesto de swipe (arrastar esquerda→direita = voltar)
+  const swipeRef = useSwipeBack(onSwipeBack || (() => {}));
   // Tradução do ID da aba para um título na barra de navegação superior (Header)
   // Se houver um título personalizado, usa ele em vez do padrão
   const getHeaderTitle = () => {
@@ -41,8 +45,8 @@ export default function Layout({ children, activeTab, setActiveTab, headerTitle 
         </div>
       </header>
 
-      {/* Área Principal de Conteúdo */}
-      <main className="app-content-area">
+      {/* Área Principal de Conteúdo (com gestos de swipe) */}
+      <main className="app-content-area" ref={swipeRef}>
         <div className="content-container">
           {children}
         </div>

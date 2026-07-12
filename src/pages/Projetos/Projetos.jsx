@@ -12,7 +12,7 @@ import ProjectForm from './components/ProjectForm';
  * @param {Array} projetos - Lista de projetos compartilhada do App.
  * @param {function} setProjetos - Função para atualizar a lista de projetos no App.
  */
-export default function Projetos({ onTitleChange, projetos, setProjetos }) {
+export default function Projetos({ onTitleChange, projetos, setProjetos, registerGoBack }) {
 
   // Controla a visualização atual: 'lista' ou 'detalhe'
   const [view, setView] = useState('lista');
@@ -20,6 +20,17 @@ export default function Projetos({ onTitleChange, projetos, setProjetos }) {
   const [projetoSelecionado, setProjetoSelecionado] = useState(null);
   // Controla se o formulário está em modo de criação
   const [modoNovo, setModoNovo] = useState(false);
+
+  // Ref para a função voltarLista (usado pelo gesto de swipe)
+  const voltarListaRef = React.useRef(null);
+
+  // Registra a função de voltar para o gesto de swipe
+  React.useEffect(() => {
+    if (registerGoBack) {
+      registerGoBack(view === 'detalhe' ? () => voltarListaRef.current?.() : null);
+    }
+    return () => { if (registerGoBack) registerGoBack(null); };
+  }, [view]);
 
   // Navega para a tela de detalhes de um projeto
   const abrirDetalhe = (projeto) => {
@@ -52,6 +63,8 @@ export default function Projetos({ onTitleChange, projetos, setProjetos }) {
     setView('lista');
     if (onTitleChange) onTitleChange('Meus Projetos');
   };
+  // Atualiza a ref para o gesto de swipe
+  voltarListaRef.current = voltarLista;
 
   // Salva um projeto (novo ou atualizado)
   const salvarProjeto = (formAtualizado) => {

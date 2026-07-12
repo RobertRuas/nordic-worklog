@@ -13,13 +13,24 @@ import { mockEmails, mockEmailConfig } from '../../data/mockData';
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
  */
-export default function Email({ onTitleChange }) {
+export default function Email({ onTitleChange, registerGoBack }) {
   // Lista de e-mails (dados fictícios do arquivo centralizado)
   const [emails, setEmails] = useState(mockEmails);
   // Visualização atual: 'lista', 'leitura', 'compor', 'configuracoes'
   const [view, setView] = useState('lista');
   // E-mail selecionado para leitura
   const [emailSelecionado, setEmailSelecionado] = useState(null);
+
+  // Ref para a função voltarLista (usado pelo gesto de swipe)
+  const voltarListaRef = React.useRef(null);
+
+  // Registra a função de voltar para o gesto de swipe
+  React.useEffect(() => {
+    if (registerGoBack) {
+      registerGoBack(view !== 'lista' ? () => voltarListaRef.current?.() : null);
+    }
+    return () => { if (registerGoBack) registerGoBack(null); };
+  }, [view]);
 
   // ═══ Navegação entre views ═══
 
@@ -38,6 +49,8 @@ export default function Email({ onTitleChange }) {
     setView('lista');
     if (onTitleChange) onTitleChange('E-Mail');
   };
+  // Atualiza a ref para o gesto de swipe
+  voltarListaRef.current = voltarLista;
 
   // Abre o formulário de composição
   const abrirCompor = () => {
