@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiHome, FiClock, FiBriefcase, FiSettings } from 'react-icons/fi';
+import { FiHome, FiClock, FiBriefcase, FiMail, FiSettings } from 'react-icons/fi';
 import './BottomNav.css';
 
 /**
@@ -12,6 +12,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
   const navItems = [
     { id: 'home', label: 'Início', icon: <FiHome /> },
     { id: 'registros', label: 'Registros', icon: <FiClock /> },
+    { id: 'email', label: 'E-Mail', icon: <FiMail /> },
     { id: 'projetos', label: 'Projetos', icon: <FiBriefcase /> },
     { id: 'configuracoes', label: 'Ajustes', icon: <FiSettings /> },
   ];

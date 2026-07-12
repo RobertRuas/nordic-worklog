@@ -7,7 +7,14 @@
     <title>nordic-worklog</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loader inline exibido antes do React carregar -->
+      <div id="app-loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-primary,#f4f4f5);gap:16px;z-index:9999;">
+        <div style="width:28px;height:28px;border:2px solid var(--border-color,#e4e4e7);border-top-color:var(--accent-color,#09090b);border-radius:50%;animation:loaderSpin 0.7s linear infinite;"></div>
+        <p style="font-size:0.8rem;font-weight:400;color:var(--text-secondary,#71717a);letter-spacing:0.08em;font-family:'Outfit',sans-serif;">Nordic Worklog</p>
+      </div>
+      <style>@keyframes loaderSpin{to{transform:rotate(360deg)}}</style>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

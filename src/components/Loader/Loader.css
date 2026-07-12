@@ -1,0 +1,39 @@
+/* Loader — Nordic Worklog (estilo minimalista nórdico) */
+
+/* Overlay que cobre toda a tela durante o carregamento */
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+  z-index: 9999;
+  gap: 16px;
+}
+
+/* Spinner circular minimalista */
+.loader-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: loaderSpin 0.7s linear infinite;
+}
+
+/* Texto discreto abaixo do spinner */
+.loader-text {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+}
+
+/* Animação de rotação suave */
+@keyframes loaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

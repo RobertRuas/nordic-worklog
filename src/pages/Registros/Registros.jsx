@@ -1,47 +1,31 @@
-import React, { useState } from 'react';
-import { FiPlus } from 'react-icons/fi';
+import React, { useState, useMemo } from 'react';
+import { FiPlus, FiChevronDown, FiClock, FiNavigation } from 'react-icons/fi';
 import RegistroItem from './components/RegistroItem';
 import RegistroForm from './components/RegistroForm';
+import { mockRegistros } from '../../data/mockData';
 
 /**
- * Página de Registros - Nordic Worklog
- * Exibe a lista resumida dos registros (dia + projeto + semana) e permite
- * navegar para a tela de detalhes com formulário completo categorizado.
+ * Mapeia o número do mês para o nome abreviado em português.
+ * 
+ * @param {number} mesNum - Número do mês (1-12).
+ * @returns {string} Nome abreviado do mês.
+ */
+const nomeMes = (mesNum) => {
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  return meses[mesNum - 1] || '';
+};
+
+/**
+ * Página de Registros — Nordic Worklog
+ * Exibe os registros organizados em acordeão: Mês > Semana > Registros.
+ * A semana mais recente fica expandida por padrão.
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
  * @param {Array} projetos - Lista de projetos compartilhada do App (para o select de projeto).
  */
 export default function Registros({ onTitleChange, projetos }) {
-  // Lista fictícia de registros com os campos obrigatórios
-  const [registros, setRegistros] = useState([
-    {
-      id: 1, semana: 28, dia: '2025-07-07', projeto: 'Nordic Design System',
-      timeNo: 'T-04', nomeTecnico: 'Erik Lindberg', funcao: 'L2', teamLeader: 'Não',
-      localTurbinaNo: 'WEA1', turbinaIdNo: '552201234', maxBoglTowerNo: 'G20_001234_DE', bladeNo: 'B-01',
-      wtgDowntimeHours: 2, standbyReason: 'Aguardando peça',
-      workingHours: 8, standbyHours: 2, travelHours: 0,
-      dailyProgress: '07:00 Tooling prepare, grinding, chamfering. 15:00 Lamination started. 19:00 Demob.',
-      time: [{ id: 101, nome: 'Erik Lindberg', irataLevel: 'L2', windaId: 'RR055273BR' }],
-    },
-    {
-      id: 2, semana: 28, dia: '2025-07-08', projeto: 'Time Tracking WebApp',
-      timeNo: 'T-02', nomeTecnico: 'Anders Johansson', funcao: 'L3', teamLeader: 'Sim',
-      localTurbinaNo: 'WEA3', turbinaIdNo: '552201567', maxBoglTowerNo: 'G20_001567_DE', bladeNo: 'B-03',
-      wtgDowntimeHours: 0, standbyReason: '',
-      workingHours: 10, standbyHours: 0, travelHours: 1,
-      dailyProgress: '06:30 Arrival and setup. Coating & finishing throughout the day. 18:00 Cleanup and demob.',
-      time: [{ id: 102, nome: 'Anders Johansson', irataLevel: 'L3', windaId: 'RR066384NO' }],
-    },
-    {
-      id: 3, semana: 29, dia: '2025-07-14', projeto: 'E-commerce Platform',
-      timeNo: 'T-01', nomeTecnico: 'Lars Petersen', funcao: 'L1', teamLeader: 'Não',
-      localTurbinaNo: 'WEA2', turbinaIdNo: '552201890', maxBoglTowerNo: 'G20_001890_DK', bladeNo: 'B-02',
-      wtgDowntimeHours: 4, standbyReason: 'Condições climáticas',
-      workingHours: 5, standbyHours: 3, travelHours: 2,
-      dailyProgress: '08:00 Waiting for weather window. 11:00 Started grinding. 14:00 Stand-by due to wind. 17:00 Demob.',
-      time: [{ id: 201, nome: 'Lars Petersen', irataLevel: 'L1', windaId: 'RR077495DK' }],
-    },
-  ]);
+  // Lista de registros (dados fictícios do arquivo centralizado)
+  const [registros, setRegistros] = useState(mockRegistros);
 
   // Controla a visualização atual: 'lista' ou 'detalhe'
   const [view, setView] = useState('lista');
@@ -49,6 +33,64 @@ export default function Registros({ onTitleChange, projetos }) {
   const [registroSelecionado, setRegistroSelecionado] = useState(null);
   // Controla se o formulário está em modo de criação
   const [modoNovo, setModoNovo] = useState(false);
+
+  // ═══ Agrupamento dos registros em Mês > Semana ═══
+  const { grupos, semanaRecente } = useMemo(() => {
+    // Agrupa registros por mês e depois por semana
+    const porMes = {};
+    registros.forEach((reg) => {
+      const data = new Date(reg.dia + 'T00:00:00');
+      const ano = data.getFullYear();
+      const mes = data.getMonth() + 1;
+      const chaveMes = `${ano}-${String(mes).padStart(2, '0')}`;
+
+      if (!porMes[chaveMes]) porMes[chaveMes] = {};
+      if (!porMes[chaveMes][reg.semana]) porMes[chaveMes][reg.semana] = [];
+      porMes[chaveMes][reg.semana].push(reg);
+    });
+
+    // Ordena os meses do mais recente para o mais antigo
+    const mesesOrdenados = Object.keys(porMes).sort((a, b) => b.localeCompare(a));
+
+    // Monta a estrutura final ordenada
+    const resultado = mesesOrdenados.map((chaveMes) => {
+      const [ano, mes] = chaveMes.split('-');
+      const semanas = Object.keys(porMes[chaveMes])
+        .map((sem) => ({
+          semana: parseInt(sem),
+          // Registros ordenados do mais recente para o mais antigo
+          registros: porMes[chaveMes][sem].sort((a, b) => b.dia.localeCompare(a.dia)),
+        }))
+        .sort((a, b) => b.semana - a.semana);
+      return { chaveMes, ano, mes: parseInt(mes), semanas };
+    });
+
+    // Encontra a semana mais recente (maior número da semana do mês mais recente)
+    let recente = null;
+    if (resultado.length > 0 && resultado[0].semanas.length > 0) {
+      recente = `${resultado[0].chaveMes}-${resultado[0].semanas[0].semana}`;
+    }
+
+    return { grupos: resultado, semanaRecente: recente };
+  }, [registros]);
+
+  // Controla quais semanas estão expandidas (a mais recente por padrão)
+  const [semanasAbertas, setSemanasAbertas] = useState(() => {
+    return semanaRecente ? new Set([semanaRecente]) : new Set();
+  });
+
+  // Alterna a expansão de uma semana
+  const toggleSemana = (chave) => {
+    setSemanasAbertas((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(chave)) {
+        novo.delete(chave);
+      } else {
+        novo.add(chave);
+      }
+      return novo;
+    });
+  };
 
   // Navega para a tela de detalhes de um registro
   const abrirDetalhe = (registro) => {
@@ -75,19 +117,18 @@ export default function Registros({ onTitleChange, projetos }) {
 
   // Abre o formulário para criar um novo registro
   const abrirNovo = () => {
-    // Define a data de hoje e calcula o número da semana automaticamente
     const dataHoje = obterDataHoje();
     const semanaHoje = obterSemanaISO(dataHoje);
 
     setRegistroSelecionado({
-      id: Date.now(), // ID temporário baseado em timestamp
+      id: Date.now(),
       semana: semanaHoje, dia: dataHoje, projeto: '',
       timeNo: '', nomeTecnico: '', funcao: '', teamLeader: 'Não',
       localTurbinaNo: '', turbinaIdNo: '', maxBoglTowerNo: '', bladeNo: '',
       wtgDowntimeHours: 0, standbyReason: '',
       workingHours: 0, standbyHours: 0, travelHours: 0,
       dailyProgress: '',
-      time: [], // Lista de técnicos do time para este registro
+      time: [],
     });
     setModoNovo(true);
     setView('detalhe');
@@ -105,10 +146,8 @@ export default function Registros({ onTitleChange, projetos }) {
   // Salva um registro (novo ou atualizado)
   const salvarRegistro = (formAtualizado) => {
     if (modoNovo) {
-      // Adiciona o novo registro à lista
       setRegistros((prev) => [...prev, formAtualizado]);
     } else {
-      // Atualiza o registro existente
       setRegistros((prev) => prev.map((r) => r.id === formAtualizado.id ? formAtualizado : r));
       setRegistroSelecionado(formAtualizado);
     }
@@ -134,20 +173,94 @@ export default function Registros({ onTitleChange, projetos }) {
     );
   }
 
-  // Renderiza a lista resumida de registros
+  // ═══ Renderização da lista em acordeão ═══
   return (
     <div className="fade-in">
       <div className="card">
         <h2 className="card-title">Registros</h2>
 
-        {/* Renderização da lista de registros utilizando o subcomponente */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {registros.map((registro) => (
-            <RegistroItem
-              key={registro.id}
-              registro={registro}
-              onClick={() => abrirDetalhe(registro)}
-            />
+        {/* Acordeão: Mês > Semana > Registros */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {grupos.map((mesGrupo) => (
+            <div key={mesGrupo.chaveMes}>
+              {/* Cabeçalho do Mês */}
+              <h3 style={{
+                fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)',
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+                marginBottom: '4px', paddingBottom: '4px',
+                borderBottom: '1px solid var(--border-color)',
+              }}>
+                {nomeMes(mesGrupo.mes)} {mesGrupo.ano}
+              </h3>
+
+              {/* Semanas do mês */}
+              {mesGrupo.semanas.map((sem) => {
+                const chaveSemana = `${mesGrupo.chaveMes}-${sem.semana}`;
+                const aberta = semanasAbertas.has(chaveSemana);
+
+                // Calcula os totais de horas da semana
+                const totalW = sem.registros.reduce((s, r) => s + (r.workingHours || 0), 0);
+                const totalS = sem.registros.reduce((s, r) => s + (r.standbyHours || 0), 0);
+                const totalT = sem.registros.reduce((s, r) => s + (r.travelHours || 0), 0);
+
+                // Estilo para badges de horas no cabeçalho (colorido só se > 0)
+                const badgeHora = (cor, valor, label, icone) => (
+                  <span style={{
+                    display: 'flex', alignItems: 'center', gap: '2px',
+                    fontSize: '0.6rem', fontWeight: valor > 0 ? 500 : 400,
+                    color: valor > 0 ? cor : 'var(--text-secondary)',
+                    opacity: valor > 0 ? 1 : 0.4,
+                  }}>
+                    {icone}
+                    {valor}h
+                  </span>
+                );
+
+                return (
+                  <div key={chaveSemana} style={{ marginLeft: '8px', marginBottom: '6px' }}>
+                    {/* Cabeçalho da Semana (clicável para expandir/recolher) */}
+                    <button
+                      onClick={() => toggleSemana(chaveSemana)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        width: '100%', padding: '7px 10px', borderRadius: '6px',
+                        background: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)',
+                        textTransform: 'uppercase', letterSpacing: '0.03em',
+                        transition: 'background 0.2s ease',
+                      }}
+                    >
+                      {/* Seta indicadora com rotação */}
+                      <FiChevronDown style={{
+                        fontSize: '0.8rem',
+                        transition: 'transform 0.2s ease',
+                        transform: aberta ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        color: 'var(--text-secondary)',
+                      }} />
+                      Sem. {sem.semana}
+                      {/* Totais de horas da semana */}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                        {badgeHora('#22c55e', totalW, 'W', <FiClock style={{ fontSize: '0.55rem' }} />)}
+                        {badgeHora('#eab308', totalS, 'S', <span style={{ fontSize: '0.55rem' }}>⏸</span>)}
+                        {badgeHora('#3b82f6', totalT, 'T', <FiNavigation style={{ fontSize: '0.5rem' }} />)}
+                      </span>
+                    </button>
+
+                    {/* Lista de registros da semana (visível quando expandida) */}
+                    {aberta && (
+                      <div style={{ marginLeft: '14px', marginTop: '4px', borderLeft: '2px solid var(--border-color)', paddingLeft: '10px' }}>
+                        {sem.registros.map((registro) => (
+                          <div key={registro.id} onClick={() => abrirDetalhe(registro)}>
+                            <RegistroItem registro={registro} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           ))}
         </div>
       </div>
@@ -156,21 +269,11 @@ export default function Registros({ onTitleChange, projetos }) {
       <button
         onClick={abrirNovo}
         style={{
-          position: 'fixed',
-          bottom: '80px',
-          right: '20px',
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          border: 'none',
-          background: 'var(--text-primary)',
-          color: 'var(--bg-primary)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          fontSize: '1.2rem',
-          zIndex: 100,
+          position: 'fixed', bottom: '80px', right: '20px',
+          width: '48px', height: '48px', borderRadius: '50%',
+          border: 'none', background: 'var(--text-primary)', color: 'var(--bg-primary)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', fontSize: '1.2rem', zIndex: 100,
         }}
         title="Novo Registro"
       >

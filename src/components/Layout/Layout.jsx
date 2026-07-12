@@ -21,6 +21,8 @@ export default function Layout({ children, activeTab, setActiveTab, headerTitle 
         return 'Nordic Worklog';
       case 'registros':
         return 'Registros';
+      case 'email':
+        return 'E-Mail';
       case 'projetos':
         return 'Meus Projetos';
       case 'configuracoes':
