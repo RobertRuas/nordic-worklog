@@ -49,10 +49,9 @@ export async function buscarEmails(config, desde = null) {
     // Definir período de busca (padrão: últimos 7 dias)
     const dataDesde = desde || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    // Buscar e-mails não lidos desde a data
+    // Buscar todos os e-mails desde a data (lidos e não lidos)
     const mensagens = [];
     for await (const msg of client.fetch({
-      seen: false,
       since: dataDesde,
     }, {
       uid: true,
@@ -61,6 +60,7 @@ export async function buscarEmails(config, desde = null) {
       source: {
         maxBytes: 1024 * 1024, // Limitar a 1MB por e-mail
       },
+      flags: true, // Incluir flags para saber se foi lido
     })) {
       // Parsear o e-mail completo
       const parsed = await simpleParser(msg.source);
@@ -73,7 +73,7 @@ export async function buscarEmails(config, desde = null) {
         assunto: parsed.subject || '(Sem assunto)',
         data: parsed.date?.toISOString() || new Date().toISOString(),
         corpo: parsed.text || '',
-        lido: false,
+        lido: msg.flags?.has('\\seen') || false,
       });
     }
 
