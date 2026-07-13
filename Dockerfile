@@ -43,8 +43,8 @@ RUN npm ci --omit=dev
 # Copiar código do backend
 COPY backend/ ./backend/
 
-# Copiar arquivos estáticos do build frontend
-COPY --from=build /app/dist /usr/share/nginx/html/worklog
+# Copiar arquivos estáticos do build frontend (na raiz do Nginx)
+COPY --from=build /app/dist /usr/share/nginx/html
 
 # Script de inicialização (inicia Express + Nginx)
 COPY docker-entrypoint.sh /docker-entrypoint.sh
