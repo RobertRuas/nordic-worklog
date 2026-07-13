@@ -77,6 +77,9 @@ export default function ProjectForm({ projeto, onVoltar, onSalvar, onExcluir, mo
   const { redimensionar } = useImageResize();
   const inputAnexoRef = useRef(null);
 
+  // ═══ Estado para preview de imagem em modal ═══
+  const [anexoPreview, setAnexoPreview] = useState(null);
+
   // Função para atualizar um campo específico do formulário
   const atualizarCampo = (campo, valor) => {
     setForm((prev) => ({ ...prev, [campo]: valor }));
@@ -736,7 +739,10 @@ export default function ProjectForm({ projeto, onVoltar, onSalvar, onExcluir, mo
               Nenhum anexo adicionado.
             </p>
           ) : (
-            (form.anexos || []).map((anexo) => (
+            (form.anexos || []).map((anexo) => {
+              // Verifica se o anexo é uma imagem para permitir preview
+              const ehImagem = anexo.tipo?.startsWith('image/') || anexo.preview;
+              return (
               <div
                 key={anexo.id}
                 style={{
@@ -744,7 +750,9 @@ export default function ProjectForm({ projeto, onVoltar, onSalvar, onExcluir, mo
                   padding: '8px 10px', borderRadius: '6px',
                   border: '1px solid var(--border-color)',
                   background: 'var(--bg-secondary)',
+                  cursor: ehImagem ? 'pointer' : 'default',
                 }}
+                onClick={() => ehImagem && setAnexoPreview(anexo)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
                   {/* Badge com tipo do arquivo */}
@@ -776,10 +784,62 @@ export default function ProjectForm({ projeto, onVoltar, onSalvar, onExcluir, mo
                   </button>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* ═══ Modal de Preview de Imagem ═══ */}
+      {anexoPreview && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.8)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: '16px',
+          }}
+          onClick={() => setAnexoPreview(null)}
+        >
+          <div
+            style={{
+              position: 'relative', maxWidth: '90vw', maxHeight: '90vh',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botão fechar */}
+            <button
+              onClick={() => setAnexoPreview(null)}
+              style={{
+                position: 'absolute', top: '-12px', right: '-12px',
+                width: '28px', height: '28px', borderRadius: '50%',
+                background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 1,
+              }}
+            >
+              <FiX size={14} />
+            </button>
+            {/* Imagem em tamanho máximo */}
+            <img
+              src={anexoPreview.preview}
+              alt={anexoPreview.nome}
+              style={{
+                maxWidth: '90vw', maxHeight: '85vh',
+                borderRadius: '8px', objectFit: 'contain',
+                border: '1px solid var(--border-color)',
+              }}
+            />
+            {/* Nome do arquivo */}
+            <p style={{
+              textAlign: 'center', fontSize: '0.7rem', color: '#fff',
+              marginTop: '8px', opacity: 0.8,
+            }}>
+              {anexoPreview.nome}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ═══ Modal de Seleção de Localização (Mapa) ═══ */}
       {modalMapaAberto && editando && (
