@@ -124,7 +124,7 @@ export default function ProjectForm({ projeto, onVoltar, onSalvar, onExcluir, mo
     background: 'var(--bg-primary)',
     border: '1px solid var(--border-color)',
     borderRadius: '6px',
-    padding: '8px 10px',
+    padding: '5px 10px',
     fontSize: '0.85rem',
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-main)',

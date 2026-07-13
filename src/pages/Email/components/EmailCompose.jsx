@@ -35,7 +35,7 @@ export default function EmailCompose({ onVoltar, onEnviar, emailConta }) {
   const estiloInput = {
     width: '100%', background: 'var(--bg-primary)',
     border: '1px solid var(--border-color)', borderRadius: '6px',
-    padding: '8px 10px', fontSize: '0.82rem', color: 'var(--text-primary)',
+    padding: '5px 10px', fontSize: '0.82rem', color: 'var(--text-primary)',
     fontFamily: 'var(--font-main)', outline: 'none',
     transition: 'border-color 0.2s ease',
   };

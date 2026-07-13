@@ -68,6 +68,13 @@ a {
   color: inherit;
 }
 
+/* Evita zoom automático no Safari iOS — font-size mínimo de 16px em campos de formulário */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
 /* Efeito de transição padrão suave */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;

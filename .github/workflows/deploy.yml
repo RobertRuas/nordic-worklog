@@ -1,0 +1,46 @@
+# Pipeline de deploy automático — Nordic Worklog
+# Dispara em cada push na branch main e faz deploy via SSH + Docker
+name: Deploy Automático
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build e Deploy em Produção
+    runs-on: ubuntu-latest
+
+    steps:
+      # Passo 1: Checkout do código
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      # Passo 2: Configurar chave SSH
+      - name: Configurar acesso SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Passo 3: Sincronizar código com o servidor via rsync
+      - name: Sincronizar arquivos com o servidor
+        run: |
+          rsync -avz --delete \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.github' \
+            . ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/ubuntu/apps/nordic-worklog/
+
+      # Passo 4: Reconstruir e reiniciar o container Docker
+      - name: Reconstruir container Docker no servidor
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/apps/nordic-worklog
+            sudo docker compose build --no-cache
+            sudo docker compose up -d
+            sudo docker image prune -f

@@ -26,9 +26,9 @@ export default function ParametrosBox() {
 
   // Estilo reutilizável para input numérico (largura fixa e alinhada)
   const inputStyle = {
-    width: '56px', background: 'var(--bg-secondary)',
+    width: '64px', background: 'var(--bg-secondary)',
     border: '1px solid var(--border-color)', borderRadius: '4px',
-    padding: '4px 6px', fontSize: '0.8rem', fontWeight: 500,
+    padding: '2px 6px', fontSize: '0.8rem', fontWeight: 500,
     color: 'var(--text-primary)', textAlign: 'right', outline: 'none',
   };
 
