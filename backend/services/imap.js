@@ -9,7 +9,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 
 /**
- * Busca e-mails não lidos da caixa de entrada.
+ * Busca todos os e-mails da caixa de entrada (lidos e não lidos).
  * 
  * @param {Object} config - Configuração IMAP do usuário.
  * @param {string} config.email - E-mail do usuário.
@@ -18,10 +18,9 @@ import { simpleParser } from 'mailparser';
  * @param {string} config.imap.servidor - Endereço do servidor.
  * @param {number} config.imap.porta - Porta do servidor.
  * @param {string} config.imap.encriptacao - Tipo de encriptação.
- * @param {Date} [desde] - Buscar e-mails desde esta data (padrão: últimos 7 dias).
- * @returns {Promise<Array>} Lista de e-mails encontrados.
+ * @returns {Promise<Array>} Lista de todos os e-mails encontrados.
  */
-export async function buscarEmails(config, desde = null) {
+export async function buscarEmails(config) {
   const { email, senha, imap } = config;
 
   // Configurar TLS com base na encriptação
@@ -46,13 +45,10 @@ export async function buscarEmails(config, desde = null) {
     // Abrir a caixa de entrada
     const mailbox = await client.mailboxOpen('INBOX');
 
-    // Definir período de busca (padrão: últimos 7 dias)
-    const dataDesde = desde || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-    // Buscar todos os e-mails desde a data (lidos e não lidos)
+    // Buscar todos os e-mails (lidos e não lidos)
     const mensagens = [];
     for await (const msg of client.fetch({
-      since: dataDesde,
+      all: true,
     }, {
       uid: true,
       envelope: true,
@@ -76,6 +72,9 @@ export async function buscarEmails(config, desde = null) {
         lido: msg.flags?.has('\\seen') || false,
       });
     }
+
+    // Ordenar por data (mais recente primeiro)
+    mensagens.sort((a, b) => new Date(b.data) - new Date(a.data));
 
     return mensagens;
   } finally {

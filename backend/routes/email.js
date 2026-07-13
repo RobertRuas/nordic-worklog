@@ -73,6 +73,7 @@ async function obterConfigEmail(req) {
 
 // ══════════════════════════════════════════════════════════
 // GET /api/email/fetch — Buscar e-mails do servidor IMAP
+// Query params: pagina (padrão 1), porPagina (padrão 10)
 // ══════════════════════════════════════════════════════════
 router.get('/fetch', autenticar, async (req, res) => {
   try {
@@ -81,14 +82,24 @@ router.get('/fetch', autenticar, async (req, res) => {
       return res.status(400).json({ erro: 'Configuração de e-mail incompleta' });
     }
 
-    // Buscar e-mails do IMAP
-    const emails = await buscarEmails(config);
+    // Parâmetros de paginação
+    const pagina = parseInt(req.query.pagina) || 1;
+    const porPagina = parseInt(req.query.porPagina) || 10;
+
+    // Buscar todos os e-mails do IMAP
+    const todosEmails = await buscarEmails(config);
+
+    // Aplicar paginação
+    const inicio = (pagina - 1) * porPagina;
+    const fim = inicio + porPagina;
+    const emailsPagina = todosEmails.slice(inicio, fim);
+    const totalPaginas = Math.ceil(todosEmails.length / porPagina);
 
     // Salvar e-mails no Firestore (apenas em produção)
-    if (!req.app.locals.modoDev && emails.length > 0) {
+    if (!req.app.locals.modoDev && emailsPagina.length > 0) {
       const db = req.app.locals.db;
       const batch = db.batch();
-      for (const email of emails) {
+      for (const email of emailsPagina) {
         const docRef = db.doc(`users/${req.uid}/emails/${email.id}`);
         batch.set(docRef, {
           ...email,
@@ -100,8 +111,11 @@ router.get('/fetch', autenticar, async (req, res) => {
 
     res.json({
       sucesso: true,
-      total: emails.length,
-      emails: emails.map(e => ({ id: e.id, de: e.de, assunto: e.assunto, data: e.data })),
+      total: todosEmails.length,
+      pagina,
+      porPagina,
+      totalPaginas,
+      emails: emailsPagina.map(e => ({ id: e.id, de: e.de, assunto: e.assunto, data: e.data, lido: e.lido })),
     });
   } catch (erro) {
     console.error('Erro ao buscar e-mails:', erro.message);

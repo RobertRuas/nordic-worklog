@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX } from 'react-icons/fi';
+import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import EmailItem from './components/EmailItem';
 import EmailRead from './components/EmailRead';
 import EmailCompose from './components/EmailCompose';
@@ -33,6 +33,13 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
   // Mensagem de status da atualização
   const [statusMsg, setStatusMsg] = useState('');
   const [statusTipo, setStatusTipo] = useState(''); // 'sucesso' | 'erro'
+
+  // ═══ Paginação ═══
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [porPagina] = useState(10);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  // E-mails vindos da API (com paginação)
+  const [emailsApi, setEmailsApi] = useState([]);
 
   // Ref para a função voltarLista (usado pelo gesto de swipe)
   const voltarListaRef = React.useRef(null);
@@ -74,7 +81,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
   // ═══ Ações ═══
 
   // Atualizar caixa de entrada — chama a API backend para buscar e-mails do IMAP
-  const handleAtualizar = useCallback(async () => {
+  const handleAtualizar = useCallback(async (pagina = 1) => {
     if (atualizando || !configValida()) return;
 
     setAtualizando(true);
@@ -92,8 +99,8 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       }
       const token = await auth.currentUser.getIdToken();
 
-      // Chamar a API backend (URL absoluta para compatibilidade com Safari)
-      const apiUrl = `${window.location.origin}/api/email/fetch`;
+      // Chamar a API backend com paginação (URL absoluta para Safari)
+      const apiUrl = `${window.location.origin}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}`;
       let resposta;
       try {
         resposta = await fetch(apiUrl, {
@@ -112,11 +119,16 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
         throw new Error(dados.erro || 'Falha ao buscar e-mails');
       }
 
+      // Atualizar estado com dados da API
+      setEmailsApi(dados.emails || []);
+      setPaginaAtual(dados.pagina || 1);
+      setTotalPaginas(dados.totalPaginas || 1);
+
       if (dados.total > 0) {
-        setStatusMsg(`${dados.total} e-mail(is) sincronizado(s)`);
+        setStatusMsg(`${dados.total} e-mail(is) — página ${dados.pagina}/${dados.totalPaginas}`);
         setStatusTipo('sucesso');
       } else {
-        setStatusMsg('Nenhum e-mail novo');
+        setStatusMsg('Nenhum e-mail encontrado');
         setStatusTipo('sucesso');
       }
 
@@ -129,7 +141,14 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     } finally {
       setAtualizando(false);
     }
-  }, [atualizando, configValida]);
+  }, [atualizando, configValida, porPagina]);
+
+  // Navegar para página anterior/próxima
+  const irPagina = (novaPagina) => {
+    if (novaPagina >= 1 && novaPagina <= totalPaginas) {
+      handleAtualizar(novaPagina);
+    }
+  };
 
   // Enviar novo e-mail
   const enviarEmail = async (novoEmail) => {
@@ -164,7 +183,9 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
 
   // ═══ View: Lista de entrada (Inbox) ═══
 
-  const naoLidos = emails.filter((e) => !e.lido).length;
+  const naoLidos = emailsApi.filter((e) => !e.lido).length;
+  // Usar e-mails da API se disponíveis, senão usar os do Firestore
+  const listaEmails = emailsApi.length > 0 ? emailsApi : emails;
   const configurado = !configLoading && configValida();
 
   return (
@@ -251,12 +272,12 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
 
         {/* ═══ Lista de e-mails ═══ */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {emails.length === 0 ? (
+          {listaEmails.length === 0 ? (
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0', opacity: 0.6 }}>
               {configurado ? 'Nenhum e-mail. Toque em atualizar para buscar.' : 'Configure seu servidor para começar.'}
             </p>
           ) : (
-            emails.map((email) => (
+            listaEmails.map((email) => (
               <EmailItem
                 key={email.id}
                 email={email}
@@ -265,6 +286,46 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
             ))
           )}
         </div>
+
+        {/* ═══ Paginação ═══ */}
+        {totalPaginas > 1 && (
+          <div style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px',
+            marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)',
+          }}>
+            <button
+              onClick={() => irPagina(paginaAtual - 1)}
+              disabled={paginaAtual <= 1}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '28px', height: '28px', borderRadius: '6px',
+                border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+                cursor: paginaAtual <= 1 ? 'not-allowed' : 'pointer',
+                opacity: paginaAtual <= 1 ? 0.3 : 1, transition: 'all 0.2s',
+              }}
+              title="Página anterior"
+            >
+              <FiChevronLeft style={{ fontSize: '0.85rem' }} />
+            </button>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {paginaAtual} / {totalPaginas}
+            </span>
+            <button
+              onClick={() => irPagina(paginaAtual + 1)}
+              disabled={paginaAtual >= totalPaginas}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '28px', height: '28px', borderRadius: '6px',
+                border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+                cursor: paginaAtual >= totalPaginas ? 'not-allowed' : 'pointer',
+                opacity: paginaAtual >= totalPaginas ? 0.3 : 1, transition: 'all 0.2s',
+              }}
+              title="Próxima página"
+            >
+              <FiChevronRight style={{ fontSize: '0.85rem' }} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Botão flutuante para compor novo e-mail */}
