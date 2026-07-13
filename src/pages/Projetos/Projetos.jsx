@@ -7,12 +7,14 @@ import ProjectForm from './components/ProjectForm';
  * Página de Projetos - Nordic Worklog
  * Exibe a lista resumida dos projetos (nome + país) e permite
  * navegar para a tela de detalhes com formulário completo.
+ * Dados reais do Firestore (tempo real).
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
- * @param {Array} projetos - Lista de projetos compartilhada do App.
- * @param {function} setProjetos - Função para atualizar a lista de projetos no App.
+ * @param {Array} projetos - Lista de projetos do Firestore.
+ * @param {function} salvarProjeto - Função para salvar projeto no Firestore.
+ * @param {function} excluirProjeto - Função para excluir projeto no Firestore.
  */
-export default function Projetos({ onTitleChange, projetos, setProjetos, registerGoBack }) {
+export default function Projetos({ onTitleChange, projetos, salvarProjeto, excluirProjeto, registerGoBack }) {
 
   // Controla a visualização atual: 'lista' ou 'detalhe'
   const [view, setView] = useState('lista');
@@ -43,13 +45,14 @@ export default function Projetos({ onTitleChange, projetos, setProjetos, registe
   // Abre o formulário para criar um novo projeto
   const abrirNovo = () => {
     setProjetoSelecionado({
-      id: Date.now(), // ID temporário baseado em timestamp
+      id: `proj_${Date.now()}`, // ID único para o Firestore
       nome: '',
       localizacao: '',
       cliente: '',
       escopo: '',
       descricao: '',
       tecnicos: [],
+      anexos: [],
     });
     setModoNovo(true);
     setView('detalhe');
@@ -66,21 +69,15 @@ export default function Projetos({ onTitleChange, projetos, setProjetos, registe
   // Atualiza a ref para o gesto de swipe
   voltarListaRef.current = voltarLista;
 
-  // Salva um projeto (novo ou atualizado)
-  const salvarProjeto = (formAtualizado) => {
-    if (modoNovo) {
-      // Adiciona o novo projeto à lista
-      setProjetos((prev) => [...prev, formAtualizado]);
-    } else {
-      // Atualiza o projeto existente
-      setProjetos((prev) => prev.map((p) => p.id === formAtualizado.id ? formAtualizado : p));
-      setProjetoSelecionado(formAtualizado);
-    }
+  // Salva um projeto no Firestore (novo ou atualizado)
+  const handleSalvar = async (formAtualizado) => {
+    await salvarProjeto(formAtualizado, formAtualizado);
+    if (modoNovo) voltarLista();
   };
 
-  // Exclui um projeto da lista
-  const excluirProjeto = (id) => {
-    setProjetos((prev) => prev.filter((p) => p.id !== id));
+  // Exclui um projeto do Firestore
+  const handleExcluir = async (id) => {
+    await excluirProjeto(id);
     voltarLista();
   };
 
@@ -90,8 +87,8 @@ export default function Projetos({ onTitleChange, projetos, setProjetos, registe
       <ProjectForm
         projeto={projetoSelecionado}
         onVoltar={voltarLista}
-        onSalvar={salvarProjeto}
-        onExcluir={excluirProjeto}
+        onSalvar={handleSalvar}
+        onExcluir={handleExcluir}
         modoNovo={modoNovo}
       />
     );
@@ -105,13 +102,19 @@ export default function Projetos({ onTitleChange, projetos, setProjetos, registe
         
         {/* Renderização da lista de projetos utilizando o subcomponente */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {projetos.map((projeto) => (
-            <ProjectItem
-              key={projeto.id}
-              projeto={projeto}
-              onClick={() => abrirDetalhe(projeto)}
-            />
-          ))}
+          {projetos.length === 0 ? (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.6, textAlign: 'center', padding: '20px 0' }}>
+              Nenhum projeto cadastrado.
+            </p>
+          ) : (
+            projetos.map((projeto) => (
+              <ProjectItem
+                key={projeto.id}
+                projeto={projeto}
+                onClick={() => abrirDetalhe(projeto)}
+              />
+            ))
+          )}
         </div>
       </div>
 

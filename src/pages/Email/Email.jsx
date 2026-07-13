@@ -1,25 +1,33 @@
-import React, { useState } from 'react';
-import { FiPlus, FiSettings } from 'react-icons/fi';
+import React, { useState, useCallback } from 'react';
+import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
 import EmailItem from './components/EmailItem';
 import EmailRead from './components/EmailRead';
 import EmailCompose from './components/EmailCompose';
 import EmailSettings from './components/EmailSettings';
-import { mockEmails, mockEmailConfig } from '../../data/mockData';
+import useEmailConfig from '../../hooks/useEmailConfig';
 
 /**
  * Página de E-Mail — Nordic Worklog
- * Cliente de e-mail visual com lista de entrada, leitura, composição e configurações.
- * Dados fictícios — envio e recebimento reais dependem de backend.
+ * Cliente de e-mail com lista de entrada, leitura, composição e configurações.
+ * Dados reais do Firestore (tempo real).
+ * Exibe status de configuração e botão de atualizar.
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
+ * @param {Array} emails - Lista de e-mails do Firestore.
+ * @param {function} salvarEmail - Função para salvar e-mail no Firestore.
+ * @param {function} marcarLido - Função para marcar e-mail como lido.
+ * @param {function} excluirEmail - Função para excluir e-mail do Firestore.
  */
-export default function Email({ onTitleChange, registerGoBack }) {
-  // Lista de e-mails (dados fictícios do arquivo centralizado)
-  const [emails, setEmails] = useState(mockEmails);
+export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, excluirEmail, registerGoBack }) {
+  // Configuração do servidor de e-mail (do Firestore)
+  const { emailConfig, loading: configLoading, salvarEmailConfig, configValida } = useEmailConfig();
+
   // Visualização atual: 'lista', 'leitura', 'compor', 'configuracoes'
   const [view, setView] = useState('lista');
   // E-mail selecionado para leitura
   const [emailSelecionado, setEmailSelecionado] = useState(null);
+  // Estado de atualização
+  const [atualizando, setAtualizando] = useState(false);
 
   // Ref para a função voltarLista (usado pelo gesto de swipe)
   const voltarListaRef = React.useRef(null);
@@ -34,105 +42,148 @@ export default function Email({ onTitleChange, registerGoBack }) {
 
   // ═══ Navegação entre views ═══
 
-  // Abre um e-mail para leitura
   const abrirEmail = (email) => {
-    // Marca como lido
-    setEmails((prev) => prev.map((e) => e.id === email.id ? { ...e, lido: true } : e));
+    marcarLido(email.id);
     setEmailSelecionado({ ...email, lido: true });
     setView('leitura');
     if (onTitleChange) onTitleChange('E-Mail');
   };
 
-  // Volta para a lista de e-mails
   const voltarLista = () => {
     setEmailSelecionado(null);
     setView('lista');
     if (onTitleChange) onTitleChange('E-Mail');
   };
-  // Atualiza a ref para o gesto de swipe
   voltarListaRef.current = voltarLista;
 
-  // Abre o formulário de composição
   const abrirCompor = () => {
     setView('compor');
     if (onTitleChange) onTitleChange('Novo E-Mail');
   };
 
-  // Abre as configurações do servidor
   const abrirConfig = () => {
     setView('configuracoes');
     if (onTitleChange) onTitleChange('Configurações');
   };
 
-  // Envia um novo e-mail (simulado — adiciona à lista)
-  const enviarEmail = (novoEmail) => {
-    setEmails((prev) => [novoEmail, ...prev]);
+  // ═══ Ações ═══
+
+  // Atualizar caixa de entrada (simula refresh — no futuro busca do servidor)
+  const handleAtualizar = useCallback(() => {
+    setAtualizando(true);
+    // Simula delay de atualização
+    setTimeout(() => setAtualizando(false), 1200);
+  }, []);
+
+  // Enviar novo e-mail
+  const enviarEmail = async (novoEmail) => {
+    const emailId = `email_${Date.now()}`;
+    await salvarEmail(emailId, {
+      ...novoEmail,
+      lido: true,
+      data: new Date().toISOString(),
+    });
     voltarLista();
   };
 
-  // Exclui um e-mail da lista
-  const excluirEmail = (id) => {
-    setEmails((prev) => prev.filter((e) => e.id !== id));
+  // Excluir e-mail
+  const handleExcluirEmail = async (id) => {
+    await excluirEmail(id);
     voltarLista();
   };
 
   // ═══ Renderização condicional por view ═══
 
-  // View: Leitura de e-mail
   if (view === 'leitura' && emailSelecionado) {
-    return <EmailRead email={emailSelecionado} onVoltar={voltarLista} onExcluir={excluirEmail} />;
+    return <EmailRead email={emailSelecionado} onVoltar={voltarLista} onExcluir={handleExcluirEmail} />;
   }
 
-  // View: Composição de e-mail
   if (view === 'compor') {
-    return <EmailCompose onVoltar={voltarLista} onEnviar={enviarEmail} emailConta={mockEmailConfig.email} />;
+    return <EmailCompose onVoltar={voltarLista} onEnviar={enviarEmail} emailConta={emailConfig.email || ''} />;
   }
 
-  // View: Configurações do servidor
   if (view === 'configuracoes') {
-    return <EmailSettings config={mockEmailConfig} onVoltar={voltarLista} />;
+    return <EmailSettings config={emailConfig} salvarEmailConfig={salvarEmailConfig} onVoltar={voltarLista} />;
   }
 
   // ═══ View: Lista de entrada (Inbox) ═══
 
-  // Contador de e-mails não lidos
   const naoLidos = emails.filter((e) => !e.lido).length;
+  const configurado = !configLoading && configValida();
 
   return (
     <div className="fade-in">
+      {/* ═══ Aviso: configuração pendente ═══ */}
+      {!configLoading && !configurado && (
+        <div
+          onClick={abrirConfig}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '10px 12px', marginBottom: '10px',
+            backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+            borderRadius: '8px', cursor: 'pointer', transition: 'opacity 0.2s',
+          }}
+        >
+          <FiAlertTriangle style={{ fontSize: '0.8rem', color: '#f59e0b', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+            Configure seu servidor de e-mail para começar
+          </span>
+        </div>
+      )}
+
       <div className="card">
-        {/* Cabeçalho da inbox com contador e botão de configurações */}
+        {/* Cabeçalho da inbox com contador e botões */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <h2 className="card-title" style={{ margin: 0 }}>
+          <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             Caixa de Entrada
             {naoLidos > 0 && (
               <span style={{
                 fontSize: '0.6rem', fontWeight: 600, padding: '1px 7px',
                 borderRadius: '10px', background: 'var(--accent-color)',
-                color: 'var(--bg-primary)', marginLeft: '8px',
+                color: 'var(--bg-primary)',
               }}>
                 {naoLidos}
               </span>
             )}
           </h2>
-          <button
-            onClick={abrirConfig}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: '30px', height: '30px', borderRadius: '6px',
-              border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
-            }}
-            title="Configurações do servidor"
-          >
-            <FiSettings style={{ fontSize: '0.85rem' }} />
-          </button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {/* Botão Atualizar */}
+            <button
+              onClick={handleAtualizar}
+              disabled={atualizando}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '30px', height: '30px', borderRadius: '6px',
+                border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+                cursor: atualizando ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s', opacity: atualizando ? 0.5 : 1,
+              }}
+              title="Atualizar caixa de entrada"
+            >
+              <FiRefreshCw
+                style={{ fontSize: '0.8rem', transition: 'transform 0.6s', transform: atualizando ? 'rotate(360deg)' : 'rotate(0deg)' }}
+              />
+            </button>
+            {/* Botão Configurações */}
+            <button
+              onClick={abrirConfig}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '30px', height: '30px', borderRadius: '6px',
+                border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+              }}
+              title="Configurações do servidor"
+            >
+              <FiSettings style={{ fontSize: '0.85rem' }} />
+            </button>
+          </div>
         </div>
 
-        {/* Lista de e-mails */}
+        {/* ═══ Lista de e-mails ═══ */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {emails.length === 0 ? (
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0', opacity: 0.6 }}>
-              Nenhum e-mail na caixa de entrada.
+              {configurado ? 'Nenhum e-mail na caixa de entrada.' : 'Configure seu servidor para começar.'}
             </p>
           ) : (
             emails.map((email) => (

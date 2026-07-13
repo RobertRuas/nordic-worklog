@@ -5,10 +5,13 @@ import './index.css'
 import App from './App.jsx'
 
 import { ThemeProvider } from './context/ThemeContext.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
+import AuthGate from './components/AuthGate/AuthGate'
 
 /**
  * Componente raiz que remove o loader inline do index.html
  * após o React montar a aplicação.
+ * Envolve tudo com ThemeProvider e AuthProvider.
  */
 function Root() {
   useEffect(() => {
@@ -19,7 +22,11 @@ function Root() {
 
   return (
     <ThemeProvider>
-      <App />
+      <AuthProvider>
+        <AuthGate>
+          <App />
+        </AuthGate>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

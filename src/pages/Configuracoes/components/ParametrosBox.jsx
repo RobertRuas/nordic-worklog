@@ -1,27 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiDollarSign, FiClock, FiPause, FiMapPin, FiSave } from 'react-icons/fi';
+import useConfiguracoes from '../../../hooks/useConfiguracoes';
 
 /**
  * Componente ParametrosBox — Nordic Worklog
  * Exibe os parâmetros de trabalho editáveis:
  * valor/hora (€), taxa stand-by (%), jornada padrão (h) e per diem (€).
+ * Salva automaticamente no Firestore.
  * Mostra botão Salvar apenas quando algum valor é alterado.
  */
 export default function ParametrosBox() {
-  // Valores salvos (iniciais)
-  const [salvos, setSalvos] = useState({ valorHora: 36, standPercent: 70, jornada: 10, perDiem: 50 });
-  // Valores em edição
-  const [valorHora, setValorHora] = useState(36);
-  const [standPercent, setStandPercent] = useState(70);
-  const [jornada, setJornada] = useState(10);
-  const [perDiem, setPerDiem] = useState(50);
+  const { config, loading, salvarConfig } = useConfiguracoes();
+
+  // Valores em edição (inicializados com os valores do Firestore)
+  const [valorHora, setValorHora] = useState(config.valorHora);
+  const [standPercent, setStandPercent] = useState(config.standPercent);
+  const [jornada, setJornada] = useState(config.jornada);
+  const [perDiem, setPerDiem] = useState(config.perDiem);
+
+  // Atualiza valores locais quando o config do Firestore carrega
+  useEffect(() => {
+    if (!loading) {
+      setValorHora(config.valorHora);
+      setStandPercent(config.standPercent);
+      setJornada(config.jornada);
+      setPerDiem(config.perDiem);
+    }
+  }, [config, loading]);
 
   // Verifica se algum valor foi alterado
-  const alterado = valorHora !== salvos.valorHora || standPercent !== salvos.standPercent || jornada !== salvos.jornada || perDiem !== salvos.perDiem;
+  const alterado = valorHora !== config.valorHora || standPercent !== config.standPercent || jornada !== config.jornada || perDiem !== config.perDiem;
 
-  // Salva os valores atuais
+  // Salva os valores no Firestore
   const salvar = () => {
-    setSalvos({ valorHora, standPercent, jornada, perDiem });
+    salvarConfig({ valorHora, standPercent, jornada, perDiem });
   };
 
   // Estilo reutilizável para input numérico (largura fixa e alinhada)

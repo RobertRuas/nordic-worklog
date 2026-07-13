@@ -1,269 +1,166 @@
 /**
- * Esquema de Banco de Dados — Nordic Worklog
+ * Esquema de Dados — Firestore — Nordic Worklog
  * 
- * Referência simplificada para guiar a criação do backend.
- * Atualizado conforme a aplicação evolui.
+ * Referência da estrutura de dados no Cloud Firestore.
+ * Todos os dados são isolados por usuário (userId = uid do Firebase Auth).
+ * Sincronização em tempo real via onSnapshot.
  * 
  * Relacionamentos:
+ *   - Usuário 1:N Projeto (cada usuário tem seus projetos)
  *   - Projeto 1:N Técnico (um projeto tem muitos técnicos)
  *   - Projeto 1:N Registro (um projeto tem muitos registros diários)
- *   - Registro N:N Técnico (um registro tem vários técnicos; um técnico pode estar em vários registros)
- *   - Projeto 1:N Anexo (PDFs, fotos, Excel — com limite de tamanho)
- *   - Registro 1:N Foto (fotos do dia — redimensionadas automaticamente p/ 1024px)
- *   - Usuario 1:N Email
- *   - Usuario 1:1 Configuracao
+ *   - Registro N:N Técnico (um registro tem vários técnicos)
+ *   - Projeto 1:N Anexo (PDFs, fotos, Excel — no Firebase Storage)
+ *   - Registro 1:N Foto (fotos do dia — no Firebase Storage)
+ *   - Usuário 1:1 Configuracao (parâmetros de trabalho)
+ *   - Usuário 1:1 EmailConfig (servidor IMAP/SMTP)
+ *   - Usuário 1:N Email (mensagens em cache)
  */
 
 // ══════════════════════════════════════════════════════════
-// TABELA: usuarios
+// COLLECTION: users/{userId}
 // ══════════════════════════════════════════════════════════
-// Representa os usuários do sistema (login/conta)
-const usuarios = {
-  tabela: 'usuarios',
+// Perfil do usuário (criado automaticamente no login/cadastro)
+const perfil = {
+  collection: 'users/{userId}',
   campos: {
-    id:            'INTEGER PRIMARY KEY',
-    nome:          'TEXT NOT NULL',
-    email:         'TEXT UNIQUE NOT NULL',
-    senha_hash:    'TEXT NOT NULL',          // hash da senha (bcrypt)
-    criado_em:     'TIMESTAMP DEFAULT NOW',
+    nome:      'string',           // nome de exibição
+    email:     'string',           // e-mail da conta
+    criadoEm:  'Timestamp',        // data de criação
   },
 };
 
 // ══════════════════════════════════════════════════════════
-// TABELA: projetos
+// SUBCOLLECTION: users/{userId}/projetos/{projetoId}
 // ══════════════════════════════════════════════════════════
 const projetos = {
-  tabela: 'projetos',
+  collection: 'users/{userId}/projetos',
   campos: {
-    id:            'INTEGER PRIMARY KEY',
-    nome:          'TEXT NOT NULL',          // ex: "Pannonia Gols"
-    cliente:       'TEXT',                   // ex: "Pannonia Wind"
-    escopo:        'TEXT',                   // ex: "Manutenção de Turbinas"
-    descricao:     'TEXT',                   // descrição detalhada
-
-    // ── Localização do Parque/Site (via MapPicker) ──
-    localizacao:   'TEXT',                   // endereço ou nome do local (reverse geocoding)
-    latitude:      'REAL',                   // ex: 51.9527
-    longitude:     'REAL',                   // ex: 16.8958
-
-    criado_em:     'TIMESTAMP DEFAULT NOW',
+    nome:        'string',         // ex: "Pannonia Gols"
+    cliente:     'string',         // ex: "Pannonia Wind"
+    escopo:      'string',         // ex: "Manutenção de Turbinas"
+    descricao:   'string',         // descrição detalhada
+    localizacao: 'string',         // endereço (reverse geocoding)
+    latitude:    'number',         // ex: 51.9527
+    longitude:   'number',         // ex: 16.8958
+    tecnicos:    'array<Tecnico>', // técnicos vinculados
+    anexos:      'array<Anexo>',   // metadados de anexos
+    atualizadoEm: 'Timestamp',
   },
 };
 
 // ══════════════════════════════════════════════════════════
-// TABELA: tecnicos
+// SUBCOLLECTION: users/{userId}/registros/{registroId}
 // ══════════════════════════════════════════════════════════
-// Técnicos vinculados a projetos (IRATA / Winda)
-const tecnicos = {
-  tabela: 'tecnicos',
-  campos: {
-    id:            'INTEGER PRIMARY KEY',
-    projeto_id:    'INTEGER REFERENCES projetos(id)',  // vínculo com projeto
-    nome:          'TEXT NOT NULL',                     // ex: "Robert Ruas"
-    irata_level:   'TEXT CHECK (L1, L2, L3)',          // nível IRATA
-    winda_id:      'TEXT',                              // ex: "RR001001BR"
-  },
-};
-
-// ══════════════════════════════════════════════════════════
-// TABELA: registros
-// ══════════════════════════════════════════════════════════
-// Registro diário de trabalho (worklog)
 const registros = {
-  tabela: 'registros',
+  collection: 'users/{userId}/registros',
   campos: {
-    id:                  'INTEGER PRIMARY KEY',
-    projeto_id:          'INTEGER REFERENCES projetos(id)',
-
-    // ── Informações Gerais ──
-    semana:              'INTEGER',            // nº da semana (1-53)
-    dia:                 'DATE NOT NULL',       // ex: "2026-06-27"
-
-    // ── Time ──
-    time_no:             'TEXT',               // ex: "T-01"
-    nome_tecnico:        'TEXT',               // técnico responsável (reportante)
-    funcao:              'TEXT',               // ex: "L3"
-    team_leader:         'TEXT',               // "Sim" / "Não"
-
-    // ── Turbina e Localização ──
-    local_turbina_no:    'TEXT',               // ex: "IK2", "GM29"
-    turbina_id_no:       'TEXT',               // identificador da turbina
-    max_bogl_tower_no:   'TEXT',               // ex: "G20_001234_DE"
-    blade_no:            'TEXT',               // ex: "B-01"
-
-    // ── Tempos e Produção ──
-    wtg_downtime_hours:  'INTEGER DEFAULT 0',  // horas de parada da turbina
-    standby_reason:      'TEXT',               // motivo stand-by (ex: "Vento forte")
-    working_hours:       'INTEGER DEFAULT 0',  // horas trabalhadas (0-24)
-    standby_hours:       'INTEGER DEFAULT 0',  // horas em stand-by (0-24)
-    travel_hours:        'INTEGER DEFAULT 0',  // horas de deslocamento (0-24)
-
-    // ── Progresso ──
-    daily_progress:      'TEXT',               // descrição do progresso do dia
-
-    criado_em:           'TIMESTAMP DEFAULT NOW',
+    semana:             'number',   // nº da semana ISO (1-53)
+    dia:                'string',   // ex: "2026-06-27"
+    projeto:            'string',   // nome do projeto
+    timeNo:             'string',   // ex: "T-01"
+    nomeTecnico:        'string',   // técnico responsável
+    funcao:             'string',   // ex: "L3"
+    teamLeader:         'string',   // "Sim" / "Não"
+    localTurbinaNo:     'string',   // ex: "IK2"
+    turbinaIdNo:        'string',
+    maxBoglTowerNo:     'string',
+    bladeNo:            'string',
+    wtgDowntimeHours:   'number',
+    standbyReason:      'string',
+    workingHours:       'number',
+    standbyHours:       'number',
+    travelHours:        'number',
+    dailyProgress:      'string',   // descrição do progresso
+    time:               'array<Tecnico>', // técnicos no time
+    fotos:              'array<Foto>',    // metadados de fotos
+    atualizadoEm:       'Timestamp',
   },
 };
 
 // ══════════════════════════════════════════════════════════
-// TABELA: anexos
+// SUBCOLLECTION: users/{userId}/emails/{emailId}
 // ══════════════════════════════════════════════════════════
-// Arquivos anexados aos projetos (PDF, fotos, Excel, etc.)
-// Validação: tamanho máximo por arquivo (ex: 10MB para docs, 5MB para fotos)
-// Tipos aceitos: .pdf, .png, .jpg, .jpeg, .xls, .xlsx, .doc, .docx
-const anexos = {
-  tabela: 'anexos',
-  campos: {
-    id:             'INTEGER PRIMARY KEY',
-    projeto_id:     'INTEGER REFERENCES projetos(id) ON DELETE CASCADE',
-    nome_arquivo:   'TEXT NOT NULL',          // nome original do arquivo
-    tipo_arquivo:   'TEXT NOT NULL',          // MIME type (ex: "application/pdf")
-    tamanho:        'INTEGER NOT NULL',       // tamanho em bytes
-    url:            'TEXT NOT NULL',          // caminho/URL do arquivo salvo
-    criado_em:      'TIMESTAMP DEFAULT NOW',
-  },
-  // Limites de tamanho (referência para validação no backend)
-  limites: {
-    max_geral:      10 * 1024 * 1024,        // 10MB para documentos (PDF, Excel, Word)
-    max_foto:       5 * 1024 * 1024,          // 5MB para fotos
-    tipos_permitidos: [
-      'application/pdf',
-      'image/png', 'image/jpeg',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ],
-  },
-};
-
-// ══════════════════════════════════════════════════════════
-// TABELA: registro_fotos
-// ══════════════════════════════════════════════════════════
-// Fotos anexadas aos registros diários
-// Redimensionamento automático: se a foto for muito grande,
-// reduzir para resolução máxima de 1024px (largura ou altura)
-// antes de salvar. Isso garante tamanho aceitável sem rejeitar a foto.
-const registro_fotos = {
-  tabela: 'registro_fotos',
-  campos: {
-    id:             'INTEGER PRIMARY KEY',
-    registro_id:    'INTEGER REFERENCES registros(id) ON DELETE CASCADE',
-    nome_arquivo:   'TEXT NOT NULL',          // nome original
-    url:            'TEXT NOT NULL',          // caminho/URL da foto salva
-    largura:        'INTEGER',                // largura em px (após redimensionamento)
-    altura:         'INTEGER',                // altura em px (após redimensionamento)
-    tamanho:        'INTEGER NOT NULL',       // tamanho em bytes (após compressão)
-    criado_em:      'TIMESTAMP DEFAULT NOW',
-  },
-  // Regras de processamento de fotos (referência para o backend)
-  processamento: {
-    resolucao_max:  1024,                     // px — redimensionar se exceder
-    qualidade_jpeg: 0.8,                      // 80% qualidade na compressão
-    formato_saida:  'image/jpeg',             // converter PNG → JPEG para economizar espaço
-  },
-};
-
-// ══════════════════════════════════════════════════════════
-// TABELA: registro_tecnicos (N:N)
-// ══════════════════════════════════════════════════════════
-// Relação muitos-para-muitos: técnicos presentes em cada registro
-const registro_tecnicos = {
-  tabela: 'registro_tecnicos',
-  campos: {
-    registro_id:    'INTEGER REFERENCES registros(id) ON DELETE CASCADE',
-    tecnico_id:     'INTEGER REFERENCES tecnicos(id) ON DELETE CASCADE',
-  },
-  primary_key: '(registro_id, tecnico_id)',
-};
-
-// ══════════════════════════════════════════════════════════
-// TABELA: configuracoes
-// ══════════════════════════════════════════════════════════
-// Parâmetros de trabalho do usuário (valores, taxas)
-const configuracoes = {
-  tabela: 'configuracoes',
-  campos: {
-    id:             'INTEGER PRIMARY KEY',
-    usuario_id:     'INTEGER UNIQUE REFERENCES usuarios(id)',
-    valor_hora:     'REAL DEFAULT 36',        // €/h
-    stand_percent:  'REAL DEFAULT 70',        // % da taxa stand-by
-    jornada:        'REAL DEFAULT 10',         // horas padrão de jornada
-    per_diem:       'REAL DEFAULT 50',         // € de diária
-  },
-};
-
-// ══════════════════════════════════════════════════════════
-// TABELA: email_configs
-// ══════════════════════════════════════════════════════════
-// Configuração do servidor de e-mail do usuário
-const email_configs = {
-  tabela: 'email_configs',
-  campos: {
-    id:               'INTEGER PRIMARY KEY',
-    usuario_id:       'INTEGER UNIQUE REFERENCES usuarios(id)',
-    email:            'TEXT NOT NULL',
-    senha:            'TEXT NOT NULL',         // armazenar com cuidado
-
-    // POP (entrada)
-    pop_servidor:     'TEXT',                  // ex: "pop.one.com"
-    pop_porta:        'INTEGER',               // ex: 995
-    pop_encriptacao:  'TEXT',                  // ex: "SSL/TLS"
-
-    // SMTP (saída)
-    smtp_servidor:    'TEXT',                  // ex: "send.one.com"
-    smtp_porta:       'INTEGER',               // ex: 465
-    smtp_encriptacao: 'TEXT',                  // ex: "SSL/TLS"
-  },
-};
-
-// ══════════════════════════════════════════════════════════
-// TABELA: emails
-// ══════════════════════════════════════════════════════════
-// E-mails recebidos/enviados (cache local)
 const emails = {
-  tabela: 'emails',
+  collection: 'users/{userId}/emails',
   campos: {
-    id:            'INTEGER PRIMARY KEY',
-    usuario_id:    'INTEGER REFERENCES usuarios(id)',
-    de:            'TEXT NOT NULL',            // ex: "Pannonia Wind <noreply@...>"
-    para:          'TEXT NOT NULL',            // ex: "robert.ruas@one.com"
-    assunto:       'TEXT',
-    data:          'TIMESTAMP',                // ex: "2026-07-11T18:30:00"
-    lido:          'BOOLEAN DEFAULT false',
-    corpo:         'TEXT',                     // conteúdo da mensagem
-    criado_em:     'TIMESTAMP DEFAULT NOW',
+    de:       'string',      // ex: "Pannonia Wind <noreply@...>"
+    para:     'string',      // ex: "robert@one.com"
+    assunto:  'string',
+    data:     'string',      // ISO timestamp
+    lido:     'boolean',
+    corpo:    'string',
+    atualizadoEm: 'Timestamp',
   },
 };
 
 // ══════════════════════════════════════════════════════════
-// RESUMO DAS RELAÇÕES
+// DOCUMENTO: users/{userId}/config/config
+// ══════════════════════════════════════════════════════════
+const configuracoes = {
+  document: 'users/{userId}/config/config',
+  campos: {
+    valorHora:    'number',   // €/h (padrão: 36)
+    standPercent: 'number',   // % stand-by (padrão: 70)
+    jornada:      'number',   // horas padrão (padrão: 10)
+    perDiem:      'number',   // € diária (padrão: 50)
+    atualizadoEm: 'Timestamp',
+  },
+};
+
+// ══════════════════════════════════════════════════════════
+// DOCUMENTO: users/{userId}/emailConfig/config
+// ══════════════════════════════════════════════════════════
+const emailConfig = {
+  document: 'users/{userId}/emailConfig/config',
+  campos: {
+    email:           'string',
+    senha:           'string',
+    imap: {
+      servidor:      'string',       // ex: "imap.one.com"
+      porta:         'number',       // ex: 993
+      encriptacao:   'string',       // ex: "SSL/TLS"
+    },
+    smtp: {
+      servidor:      'string',       // ex: "send.one.com"
+      porta:         'number',       // ex: 465
+      encriptacao:   'string',       // ex: "SSL/TLS"
+    },
+    atualizadoEm: 'Timestamp',
+  },
+};
+
+// ══════════════════════════════════════════════════════════
+// STORAGE: Firebase Storage
+// ══════════════════════════════════════════════════════════
+// Caminhos dos arquivos no Storage:
+//   uploads/{userId}/projetos/{projetoId}/{filename}
+//   uploads/{userId}/registros/{registroId}/{filename}
+//
+// Limites de tamanho:
+//   Fotos (jpg/png): 5 MB
+//   Documentos (pdf/xls/doc): 10 MB
+//   Tipos aceitos: .pdf, .png, .jpg, .jpeg, .xls, .xlsx, .doc, .docx
+
+// ══════════════════════════════════════════════════════════
+// RESUMO DA ESTRUTURA
 // ══════════════════════════════════════════════════════════
 /*
-  usuarios
-    ├── 1:1 configuracoes         (parâmetros de trabalho)
-    ├── 1:1 email_configs         (servidores POP/SMTP)
-    └── 1:N emails                (mensagens)
-
-  projetos
-    ├── 1:N tecnicos              (técnicos do projeto)
-    ├── 1:N anexos                (PDFs, fotos, Excel)
-    └── 1:N registros             (registros diários)
-
-  registros
-    ├── N:N tecnicos              (via registro_tecnicos)
-    └── 1:N registro_fotos        (fotos do dia — auto-redimensionadas p/ 1024px)
+  users/{userId}                    → perfil do usuário
+    ├── config/config               → parâmetros de trabalho
+    ├── emailConfig/config          → configuração IMAP/SMTP
+    ├── projetos/{projetoId}        → projetos do usuário
+    │   └── (tecnicos e anexos embutidos no documento)
+    ├── registros/{registroId}      → registros diários
+    │   └── (time e fotos embutidos no documento)
+    └── emails/{emailId}            → cache de e-mails
 */
 
 export {
-  usuarios,
+  perfil,
   projetos,
-  tecnicos,
   registros,
-  registro_tecnicos,
-  registro_fotos,
-  anexos,
-  configuracoes,
-  email_configs,
   emails,
+  configuracoes,
+  emailConfig,
 };

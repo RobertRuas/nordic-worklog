@@ -5,22 +5,25 @@ import Registros from './pages/Registros/Registros';
 import Email from './pages/Email/Email';
 import Projetos from './pages/Projetos/Projetos';
 import Configuracoes from './pages/Configuracoes/Configuracoes';
-import { mockProjetos, mockRegistros, mockEmails } from './data/mockData';
+import useProjetos from './hooks/useProjetos';
+import useRegistros from './hooks/useRegistros';
+import useEmails from './hooks/useEmails';
 
 /**
  * Componente Raiz da Aplicação (App)
  * Gerencia a navegação por meio do estado local "activeTab" e renderiza a página correspondente.
- * Também controla o título dinâmico do header (ex: nome do projeto em detalhe)
- * e compartilha a lista de projetos entre as páginas.
+ * Também controla o título dinâmico do header (ex: nome do projeto em detalhe).
+ * Dados reais vindos do Firestore via hooks (tempo real).
  */
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   // Título personalizado do header (usado quando um projeto está em detalhe)
   const [headerTitle, setHeaderTitle] = useState(null);
 
-  // Lista de projetos compartilhada entre as páginas (Projetos e Registros)
-  // Dados fictícios importados do arquivo centralizado de mocks
-  const [projetos, setProjetos] = useState(mockProjetos);
+  // ═══ Dados reais do Firestore (tempo real) ═══
+  const { projetos, salvarProjeto, excluirProjeto } = useProjetos();
+  const { registros, salvarRegistro, excluirRegistro } = useRegistros();
+  const { emails, salvarEmail, marcarLido, excluirEmail } = useEmails();
 
   // Ref para a função de voltar da página atual (usada pelo gesto de swipe)
   const goBackRef = useRef(null);
@@ -50,13 +53,39 @@ function App() {
   const renderPage = () => {
     switch (activeTab) {
       case 'home':
-        return <Home projetos={projetos} registros={mockRegistros} emails={mockEmails} />;
+        return <Home projetos={projetos} registros={registros} emails={emails} />;
       case 'registros':
-        return <Registros onTitleChange={setHeaderTitle} projetos={projetos} registerGoBack={registerGoBack} />;
+        return (
+          <Registros
+            onTitleChange={setHeaderTitle}
+            projetos={projetos}
+            registros={registros}
+            salvarRegistro={salvarRegistro}
+            excluirRegistro={excluirRegistro}
+            registerGoBack={registerGoBack}
+          />
+        );
       case 'email':
-        return <Email onTitleChange={setHeaderTitle} registerGoBack={registerGoBack} />;
+        return (
+          <Email
+            onTitleChange={setHeaderTitle}
+            emails={emails}
+            salvarEmail={salvarEmail}
+            marcarLido={marcarLido}
+            excluirEmail={excluirEmail}
+            registerGoBack={registerGoBack}
+          />
+        );
       case 'projetos':
-        return <Projetos onTitleChange={setHeaderTitle} projetos={projetos} setProjetos={setProjetos} registerGoBack={registerGoBack} />;
+        return (
+          <Projetos
+            onTitleChange={setHeaderTitle}
+            projetos={projetos}
+            salvarProjeto={salvarProjeto}
+            excluirProjeto={excluirProjeto}
+            registerGoBack={registerGoBack}
+          />
+        );
       case 'configuracoes':
         return <Configuracoes />;
       default:

@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { FiPlus, FiChevronDown, FiClock, FiNavigation } from 'react-icons/fi';
 import RegistroItem from './components/RegistroItem';
 import RegistroForm from './components/RegistroForm';
-import { mockRegistros } from '../../data/mockData';
 
 /**
  * Mapeia o número do mês para o nome abreviado em português.
@@ -19,14 +18,15 @@ const nomeMes = (mesNum) => {
  * Página de Registros — Nordic Worklog
  * Exibe os registros organizados em acordeão: Mês > Semana > Registros.
  * A semana mais recente fica expandida por padrão.
+ * Dados reais do Firestore (tempo real).
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
- * @param {Array} projetos - Lista de projetos compartilhada do App (para o select de projeto).
+ * @param {Array} projetos - Lista de projetos (para o select de projeto).
+ * @param {Array} registros - Lista de registros do Firestore.
+ * @param {function} salvarRegistro - Função para salvar registro no Firestore.
+ * @param {function} excluirRegistro - Função para excluir registro no Firestore.
  */
-export default function Registros({ onTitleChange, projetos, registerGoBack }) {
-  // Lista de registros (dados fictícios do arquivo centralizado)
-  const [registros, setRegistros] = useState(mockRegistros);
-
+export default function Registros({ onTitleChange, projetos, registros, salvarRegistro, excluirRegistro, registerGoBack }) {
   // Controla a visualização atual: 'lista' ou 'detalhe'
   const [view, setView] = useState('lista');
   // Registro atualmente selecionado para visualização/edição
@@ -138,7 +138,7 @@ export default function Registros({ onTitleChange, projetos, registerGoBack }) {
       : null;
 
     setRegistroSelecionado({
-      id: Date.now(),
+      id: `reg_${Date.now()}`,
       semana: semanaHoje,
       dia: dataHoje,
       // Auto-preenche do último registro: projeto, time e turbina
@@ -173,19 +173,15 @@ export default function Registros({ onTitleChange, projetos, registerGoBack }) {
   // Atualiza a ref para o gesto de swipe
   voltarListaRef.current = voltarLista;
 
-  // Salva um registro (novo ou atualizado)
-  const salvarRegistro = (formAtualizado) => {
-    if (modoNovo) {
-      setRegistros((prev) => [...prev, formAtualizado]);
-    } else {
-      setRegistros((prev) => prev.map((r) => r.id === formAtualizado.id ? formAtualizado : r));
-      setRegistroSelecionado(formAtualizado);
-    }
+  // Salva um registro no Firestore (novo ou atualizado)
+  const handleSalvar = async (formAtualizado) => {
+    await salvarRegistro(formAtualizado.id, formAtualizado);
+    if (modoNovo) voltarLista();
   };
 
-  // Exclui um registro da lista
-  const excluirRegistro = (id) => {
-    setRegistros((prev) => prev.filter((r) => r.id !== id));
+  // Exclui um registro do Firestore
+  const handleExcluir = async (id) => {
+    await excluirRegistro(id);
     voltarLista();
   };
 
@@ -195,8 +191,8 @@ export default function Registros({ onTitleChange, projetos, registerGoBack }) {
       <RegistroForm
         registro={registroSelecionado}
         onVoltar={voltarLista}
-        onSalvar={salvarRegistro}
-        onExcluir={excluirRegistro}
+        onSalvar={handleSalvar}
+        onExcluir={handleExcluir}
         modoNovo={modoNovo}
         projetos={projetos}
       />
@@ -211,87 +207,93 @@ export default function Registros({ onTitleChange, projetos, registerGoBack }) {
 
         {/* Acordeão: Mês > Semana > Registros */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {grupos.map((mesGrupo) => (
-            <div key={mesGrupo.chaveMes}>
-              {/* Cabeçalho do Mês */}
-              <h3 style={{
-                fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)',
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-                marginBottom: '4px', paddingBottom: '4px',
-                borderBottom: '1px solid var(--border-color)',
-              }}>
-                {nomeMes(mesGrupo.mes)} {mesGrupo.ano}
-              </h3>
+          {registros.length === 0 ? (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.6, textAlign: 'center', padding: '20px 0' }}>
+              Nenhum registro cadastrado.
+            </p>
+          ) : (
+            grupos.map((mesGrupo) => (
+              <div key={mesGrupo.chaveMes}>
+                {/* Cabeçalho do Mês */}
+                <h3 style={{
+                  fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                  marginBottom: '4px', paddingBottom: '4px',
+                  borderBottom: '1px solid var(--border-color)',
+                }}>
+                  {nomeMes(mesGrupo.mes)} {mesGrupo.ano}
+                </h3>
 
-              {/* Semanas do mês */}
-              {mesGrupo.semanas.map((sem) => {
-                const chaveSemana = `${mesGrupo.chaveMes}-${sem.semana}`;
-                const aberta = semanasAbertas.has(chaveSemana);
+                {/* Semanas do mês */}
+                {mesGrupo.semanas.map((sem) => {
+                  const chaveSemana = `${mesGrupo.chaveMes}-${sem.semana}`;
+                  const aberta = semanasAbertas.has(chaveSemana);
 
-                // Calcula os totais de horas da semana
-                const totalW = sem.registros.reduce((s, r) => s + (r.workingHours || 0), 0);
-                const totalS = sem.registros.reduce((s, r) => s + (r.standbyHours || 0), 0);
-                const totalT = sem.registros.reduce((s, r) => s + (r.travelHours || 0), 0);
+                  // Calcula os totais de horas da semana
+                  const totalW = sem.registros.reduce((s, r) => s + (r.workingHours || 0), 0);
+                  const totalS = sem.registros.reduce((s, r) => s + (r.standbyHours || 0), 0);
+                  const totalT = sem.registros.reduce((s, r) => s + (r.travelHours || 0), 0);
 
-                // Estilo para badges de horas no cabeçalho (colorido só se > 0)
-                const badgeHora = (cor, valor, label, icone) => (
-                  <span style={{
-                    display: 'flex', alignItems: 'center', gap: '2px',
-                    fontSize: '0.6rem', fontWeight: valor > 0 ? 500 : 400,
-                    color: valor > 0 ? cor : 'var(--text-secondary)',
-                    opacity: valor > 0 ? 1 : 0.4,
-                  }}>
-                    {icone}
-                    {valor}h
-                  </span>
-                );
+                  // Estilo para badges de horas no cabeçalho (colorido só se > 0)
+                  const badgeHora = (cor, valor, label, icone) => (
+                    <span style={{
+                      display: 'flex', alignItems: 'center', gap: '2px',
+                      fontSize: '0.6rem', fontWeight: valor > 0 ? 500 : 400,
+                      color: valor > 0 ? cor : 'var(--text-secondary)',
+                      opacity: valor > 0 ? 1 : 0.4,
+                    }}>
+                      {icone}
+                      {valor}h
+                    </span>
+                  );
 
-                return (
-                  <div key={chaveSemana} style={{ marginLeft: '8px', marginBottom: '6px' }}>
-                    {/* Cabeçalho da Semana (clicável para expandir/recolher) */}
-                    <button
-                      onClick={() => toggleSemana(chaveSemana)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        width: '100%', padding: '7px 10px', borderRadius: '6px',
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-color)',
-                        fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)',
-                        textTransform: 'uppercase', letterSpacing: '0.03em',
-                        transition: 'background 0.2s ease',
-                      }}
-                    >
-                      {/* Seta indicadora com rotação */}
-                      <FiChevronDown style={{
-                        fontSize: '0.8rem',
-                        transition: 'transform 0.2s ease',
-                        transform: aberta ? 'rotate(0deg)' : 'rotate(-90deg)',
-                        color: 'var(--text-secondary)',
-                      }} />
-                      Sem. {sem.semana}
-                      {/* Totais de horas da semana */}
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
-                        {badgeHora('#22c55e', totalW, 'W', <FiClock style={{ fontSize: '0.55rem' }} />)}
-                        {badgeHora('#eab308', totalS, 'S', <span style={{ fontSize: '0.55rem' }}>⏸</span>)}
-                        {badgeHora('#3b82f6', totalT, 'T', <FiNavigation style={{ fontSize: '0.5rem' }} />)}
-                      </span>
-                    </button>
+                  return (
+                    <div key={chaveSemana} style={{ marginLeft: '8px', marginBottom: '6px' }}>
+                      {/* Cabeçalho da Semana (clicável para expandir/recolher) */}
+                      <button
+                        onClick={() => toggleSemana(chaveSemana)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          width: '100%', padding: '7px 10px', borderRadius: '6px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)',
+                          textTransform: 'uppercase', letterSpacing: '0.03em',
+                          transition: 'background 0.2s ease',
+                        }}
+                      >
+                        {/* Seta indicadora com rotação */}
+                        <FiChevronDown style={{
+                          fontSize: '0.8rem',
+                          transition: 'transform 0.2s ease',
+                          transform: aberta ? 'rotate(0deg)' : 'rotate(-90deg)',
+                          color: 'var(--text-secondary)',
+                        }} />
+                        Sem. {sem.semana}
+                        {/* Totais de horas da semana */}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                          {badgeHora('#22c55e', totalW, 'W', <FiClock style={{ fontSize: '0.55rem' }} />)}
+                          {badgeHora('#eab308', totalS, 'S', <span style={{ fontSize: '0.55rem' }}>⏸</span>)}
+                          {badgeHora('#3b82f6', totalT, 'T', <FiNavigation style={{ fontSize: '0.5rem' }} />)}
+                        </span>
+                      </button>
 
-                    {/* Lista de registros da semana (visível quando expandida) */}
-                    {aberta && (
-                      <div style={{ marginLeft: '14px', marginTop: '4px', borderLeft: '2px solid var(--border-color)', paddingLeft: '10px' }}>
-                        {sem.registros.map((registro) => (
-                          <div key={registro.id} onClick={() => abrirDetalhe(registro)}>
-                            <RegistroItem registro={registro} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                      {/* Lista de registros da semana (visível quando expandida) */}
+                      {aberta && (
+                        <div style={{ marginLeft: '14px', marginTop: '4px', borderLeft: '2px solid var(--border-color)', paddingLeft: '10px' }}>
+                          {sem.registros.map((registro) => (
+                            <div key={registro.id} onClick={() => abrirDetalhe(registro)}>
+                              <RegistroItem registro={registro} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

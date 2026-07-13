@@ -1,13 +1,18 @@
 import React from 'react';
 import ThemeToggle from './components/ThemeToggle';
 import ParametrosBox from './components/ParametrosBox';
-import { FiDownload, FiUser } from 'react-icons/fi';
+import DangerZone from './components/DangerZone';
+import { FiDownload, FiUser, FiLogOut } from 'react-icons/fi';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Página de Configurações - Nordic Worklog
- * Contém opções de tema (light-dark), exportação, dados de conta e parâmetros de valor/hora.
+ * Contém opções de tema (light/dark), exportação, dados de conta,
+ * parâmetros de valor/hora e zona de perigo (excluir dados).
  */
 export default function Configuracoes() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="fade-in">
       {/* Bloco Geral de Ajustes */}
@@ -37,21 +42,40 @@ export default function Configuracoes() {
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Executar</span>
           </div>
 
-          {/* Opção de Conta (Fictício) */}
+          {/* ═══ Informações da Conta (real — do Firebase Auth) ═══ */}
           <div 
             style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center',
               padding: '8px 0',
-              cursor: 'pointer'
+              borderBottom: '1px solid var(--border-color)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <FiUser style={{ color: 'var(--text-secondary)' }} />
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>Gerenciamento de Conta</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>Conta</span>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>robert@nordic.com</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {user?.email || '—'}
+            </span>
+          </div>
+
+          {/* ═══ Botão de Logout ═══ */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '8px 0',
+              cursor: 'pointer',
+            }}
+            onClick={logout}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiLogOut style={{ color: '#ef4444' }} />
+              <span style={{ fontSize: '0.85rem', color: '#ef4444' }}>Sair da Conta</span>
+            </div>
           </div>
         </div>
       </div>
@@ -63,6 +87,12 @@ export default function Configuracoes() {
           Defina as taxas e tempos padrão que influenciam no cálculo automático do seu Worklog.
         </p>
         <ParametrosBox />
+      </div>
+
+      {/* ═══ Zona de Perigo — Excluir todos os dados ═══ */}
+      <div className="card">
+        <h2 className="card-title">Gerenciamento de Dados</h2>
+        <DangerZone />
       </div>
     </div>
   );
