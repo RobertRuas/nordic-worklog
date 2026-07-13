@@ -127,19 +127,36 @@ export default function Registros({ onTitleChange, projetos, registerGoBack }) {
   };
 
   // Abre o formulário para criar um novo registro
+  // Auto-preenche projeto, time e turbina com base no último registro
   const abrirNovo = () => {
     const dataHoje = obterDataHoje();
     const semanaHoje = obterSemanaISO(dataHoje);
 
+    // Busca o último registro (mais recente por data) para auto-preencher
+    const ultimo = registros.length > 0
+      ? [...registros].sort((a, b) => b.dia.localeCompare(a.dia))[0]
+      : null;
+
     setRegistroSelecionado({
       id: Date.now(),
-      semana: semanaHoje, dia: dataHoje, projeto: '',
-      timeNo: '', nomeTecnico: '', funcao: '', teamLeader: 'Não',
-      localTurbinaNo: '', turbinaIdNo: '', maxBoglTowerNo: '', bladeNo: '',
-      wtgDowntimeHours: 0, standbyReason: '',
+      semana: semanaHoje,
+      dia: dataHoje,
+      // Auto-preenche do último registro: projeto, time e turbina
+      projeto: ultimo?.projeto || '',
+      timeNo: ultimo?.timeNo || '',
+      nomeTecnico: ultimo?.nomeTecnico || '',
+      funcao: ultimo?.funcao || '',
+      teamLeader: ultimo?.teamLeader || 'Não',
+      localTurbinaNo: ultimo?.localTurbinaNo || '',
+      turbinaIdNo: ultimo?.turbinaIdNo || '',
+      maxBoglTowerNo: ultimo?.maxBoglTowerNo || '',
+      bladeNo: ultimo?.bladeNo || '',
+      wtgDowntimeHours: 0,
+      standbyReason: '',
       workingHours: 0, standbyHours: 0, travelHours: 0,
       dailyProgress: '',
-      time: [],
+      time: ultimo?.time || [],
+      fotos: [],
     });
     setModoNovo(true);
     setView('detalhe');

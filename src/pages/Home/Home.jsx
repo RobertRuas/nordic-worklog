@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { FiClock, FiNavigation, FiBriefcase, FiMail, FiActivity } from 'react-icons/fi';
+import WeatherCard from '../../components/WeatherCard/WeatherCard';
 
 /**
  * Página Inicial (Home) — Nordic Worklog
@@ -70,6 +71,9 @@ export default function Home({ projetos = [], registros = [], emails = [] }) {
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+      {/* ═══ Seção: Previsão do Tempo ═══ */}
+      <WeatherCard />
 
       {/* ═══ Seção: Semana Atual ═══ */}
       <div className="card">

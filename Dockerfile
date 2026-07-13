@@ -4,6 +4,14 @@
 # ═══ Estágio 1: Build da aplicação ═══
 FROM node:20-alpine AS build
 
+# Argumentos de build para variáveis de ambiente Vite (prefixo VITE_)
+ARG VITE_OPENWEATHER_API_KEY
+ARG VITE_WEATHER_CITY
+
+# Define as variáveis como environment variables durante o build
+ENV VITE_OPENWEATHER_API_KEY=$VITE_OPENWEATHER_API_KEY
+ENV VITE_WEATHER_CITY=$VITE_WEATHER_CITY
+
 WORKDIR /app
 
 # Copia dependências primeiro (cache de camada)
