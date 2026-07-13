@@ -82,14 +82,16 @@ export default function EmailSettings({ config, salvarEmailConfig, onVoltar }) {
 
       // Obter token do Firebase Auth
       const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
+      if (!auth.currentUser) {
         mostrarMsg('Sessão expirada. Faça login novamente.', 'erro');
+        setTestando(false);
         return;
       }
+      const token = await auth.currentUser.getIdToken();
 
-      // Chamar a API de teste
-      const resposta = await fetch('/api/email/test', {
+      // Chamar a API de teste (URL absoluta para compatibilidade com Safari)
+      const apiUrl = `${window.location.origin}/api/email/test`;
+      const resposta = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

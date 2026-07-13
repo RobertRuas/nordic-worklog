@@ -84,15 +84,17 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     try {
       // Obter o token do Firebase Auth
       const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
+      if (!auth.currentUser) {
         setStatusMsg('Sessão expirada. Faça login novamente.');
         setStatusTipo('erro');
+        setAtualizando(false);
         return;
       }
+      const token = await auth.currentUser.getIdToken();
 
-      // Chamar a API backend
-      const resposta = await fetch('/api/email/fetch', {
+      // Chamar a API backend (URL absoluta para compatibilidade com Safari)
+      const apiUrl = `${window.location.origin}/api/email/fetch`;
+      const resposta = await fetch(apiUrl, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
