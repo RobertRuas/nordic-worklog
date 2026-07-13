@@ -7,9 +7,11 @@
 - [Layout.jsx](file://src/components/Layout/Layout.jsx)
 - [BottomNav.jsx](file://src/components/BottomNav/BottomNav.jsx)
 - [Home.jsx](file://src/pages/Home/Home.jsx)
-- [Entradas.jsx](file://src/pages/Entradas/Entradas.jsx)
+- [Registros.jsx](file://src/pages/Registros/Registros.jsx)
+- [RegistroForm.jsx](file://src/pages/Registros/components/RegistroForm.jsx)
+- [RegistroItem.jsx](file://src/pages/Registros/components/RegistroItem.jsx)
 - [Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
-- [Configuracoes.jsx](file://src/pages/Configuracoes/Configuracoes.jsx)
+- [ProjectForm.jsx](file://src/pages/Projetos/components/ProjectForm.jsx)
 - [ProjectItem.jsx](file://src/pages/Projetos/components/ProjectItem.jsx)
 - [ThemeToggle.jsx](file://src/pages/Configuracoes/components/ThemeToggle.jsx)
 - [ParametrosBox.jsx](file://src/pages/Configuracoes/components/ParametrosBox.jsx)
@@ -42,10 +44,14 @@ Layout --> Header["Header (inside Layout)"]
 Layout --> Content["Content Area (children)"]
 Layout --> BottomNav["BottomNav.jsx"]
 App --> Home["Home.jsx"]
-App --> Entradas["Entradas.jsx"]
+App --> Registros["Registros.jsx"]
 App --> Projetos["Projetos.jsx"]
 App --> Configuracoes["Configuracoes.jsx"]
+Registros --> RegistroForm["RegistroForm.jsx"]
+Registros --> RegistroItem["RegistroItem.jsx"]
+Projetos --> ProjectForm["ProjectForm.jsx"]
 Projetos --> ProjectItem["ProjectItem.jsx"]
+ProjectForm --> MapPicker["MapPicker.jsx (lazy)"]
 Configuracoes --> ThemeToggle["ThemeToggle.jsx"]
 Configuracoes --> ParametrosBox["ParametrosBox.jsx"]
 ThemeToggle --> ThemeContext["useTheme() from ThemeContext.jsx"]
@@ -75,8 +81,8 @@ ThemeToggle --> ThemeContext["useTheme() from ThemeContext.jsx"]
 - Root App: Holds activeTab state and selects the current page. Passes activeTab and setActiveTab to Layout.
 - Layout: Provides fixed header and scrollable content area; renders children (the selected page) and passes navigation props to BottomNav.
 - BottomNav: Renders navigation items and calls setActiveTab when clicked.
-- Pages: Home, Entradas, Projetos, Configuracoes render page-specific UI.
-- Subcomponents: ProjectItem, ThemeToggle, ParametrosBox compose within pages.
+- Pages: Home, Registros, Projetos, Configuracoes render page-specific features.
+- Subcomponents: RegistroForm, RegistroItem, ProjectForm, ProjectItem, ThemeToggle, ParametrosBox, MapPicker compose within pages.
 
 Key responsibilities:
 - State ownership: activeTab lives in App.
@@ -182,9 +188,9 @@ Accessibility:
 - [BottomNav.jsx:10-36](file://src/components/BottomNav/BottomNav.jsx#L10-L36)
 
 ### Page Components
-- Home: Placeholder page with minimal content.
-- Entradas: Placeholder page for work entries list.
-- Projetos: Renders a list of projects using ProjectItem subcomponent.
+- Home: Dashboard with summary cards showing weekly hours, project count, and quick action buttons.
+- Registros: Daily worklog entries grouped by month/week in accordion layout. Uses RegistroForm for CRUD and RegistroItem for list display.
+- Projetos: Project management with full CRUD via ProjectForm. Includes technician team management and map-based location picker.
 - Configuracoes: Composes ThemeToggle and ParametrosBox; includes mock export and account options.
 
 Composition patterns:
@@ -198,9 +204,14 @@ Composition patterns:
 - [Configuracoes.jsx:10-69](file://src/pages/Configuracoes/Configuracoes.jsx#L10-L69)
 
 ### Subcomponents
+- RegistroForm: Full worklog entry form with auto-fill, validation, dynamic standby calculation, and photo attachments.
+- RegistroItem: Compact list item showing date, project, and hour badges (work/standby/travel).
+- ProjectForm: Project CRUD form with technician management, map picker, and file attachments.
 - ProjectItem: Displays project name, client, and status badge.
+- MapPicker: Reusable react-leaflet map component for location picking with reverse geocoding (lazy-loaded).
+- WeatherCard: Weather forecast card with 5-day forecast, GPS location, and map-based city selector.
 - ThemeToggle: Reads theme and toggle function from ThemeContext; toggles dark/light mode.
-- ParametrosBox: Manages local state for hourly rate, currency, and daily hours.
+- ParametrosBox: Manages local state for hourly rate, stand-by rate, standard workday, and per diem.
 
 Composition patterns:
 - Presentational subcomponent receiving data via props (ProjectItem).
@@ -236,11 +247,15 @@ Main["main.jsx"] --> App["App.jsx"]
 Main --> ThemeProvider["ThemeContext.jsx"]
 App --> Layout["Layout.jsx"]
 App --> Home["Home.jsx"]
-App --> Entradas["Entradas.jsx"]
+App --> Registros["Registros.jsx"]
 App --> Projetos["Projetos.jsx"]
 App --> Configuracoes["Configuracoes.jsx"]
 Layout --> BottomNav["BottomNav.jsx"]
+Registros --> RegistroForm["RegistroForm.jsx"]
+Registros --> RegistroItem["RegistroItem.jsx"]
+Projetos --> ProjectForm["ProjectForm.jsx"]
 Projetos --> ProjectItem["ProjectItem.jsx"]
+ProjectForm --> MapPicker["MapPicker.jsx"]
 Configuracoes --> ThemeToggle["ThemeToggle.jsx"]
 Configuracoes --> ParametrosBox["ParametrosBox.jsx"]
 ThemeToggle --> ThemeContext["ThemeContext.jsx"]

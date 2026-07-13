@@ -3,6 +3,94 @@
 <cite>
 **Referenced Files in This Document**
 - [Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
+- [ProjectForm.jsx](file://src/pages/Projetos/components/ProjectForm.jsx)
+- [ProjectItem.jsx](file://src/pages/Projetos/components/ProjectItem.jsx)
+- [MapPicker.jsx](file://src/components/MapPicker/MapPicker.jsx)
+- [mockData.js](file://src/data/mockData.js)
+- [App.jsx](file://src/App.jsx)
+</cite>
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Core Components](#core-components)
+3. [ProjectForm Features](#projectform-features)
+4. [Validation System](#validation-system)
+5. [Technician Management](#technician-management)
+6. [Map-based Location](#map-based-location)
+7. [File Attachments](#file-attachments)
+8. [Data Model](#data-model)
+
+## Introduction
+The Projects module manages wind turbine maintenance projects. It supports full CRUD operations with technician team management, map-based location picking, and file attachments. All fields are validated before saving.
+
+## Core Components
+- **Projetos** (page): Owns the projects state, manages list→detail navigation, accordion by status.
+- **ProjectForm** (form): Full create/edit/delete form with sections for project info, technicians, and attachments. Includes validation and map picker.
+- **ProjectItem** (list item): Compact display of a single project in the list.
+
+## ProjectForm Features
+- **Project Info**: nome, cliente, escopo, descricao, localizacao (via MapPicker with reverse geocoding).
+- **Technician Team**: Inline CRUD for technicians with nome, irataLevel (L1/L2/L3), and windaId.
+- **Attachments**: Multi-file upload with type/size validation and automatic image resizing (1024px max).
+- **Validation**: All fields required except attachments; at least 1 technician required.
+
+## Validation System
+ProjectForm validates on save (`handleSalvar` → `validar`):
+
+| Field | Rule | Error key |
+|-------|------|-----------|
+| Nome | Required (non-empty) | `erros.nome` |
+| Cliente | Required | `erros.cliente` |
+| Escopo | Required | `erros.escopo` |
+| Descrição | Required | `erros.descricao` |
+| Localização | Required | `erros.localizacao` |
+| Técnicos | At least 1 technician | `erros.tecnicos` |
+
+Validation UI:
+- A red hint banner appears at the top of the card: "Verifique os campos obrigatórios destacados abaixo."
+- Individual fields show error text next to their label and red border color.
+- Errors clear automatically when the user edits the field.
+
+## Technician Management
+Technicians are managed inline within ProjectForm:
+- **Add**: Click "Adicionar" to show inline form with nome, irataLevel (select: L1/L2/L3), windaId.
+- **Edit**: Click edit icon on a technician to populate the inline form.
+- **Delete**: Click trash icon to remove immediately.
+- Each technician: `{ id, nome, irataLevel, windaId }`.
+- Technicians are later available for selection in RegistroForm's team picker.
+
+## Map-based Location
+- Uses `MapPicker` component (react-leaflet) in a modal overlay.
+- User moves the map to position a fixed pin.
+- Reverse geocoding via Nominatim API (with debounce) to get location name.
+- Stores `localizacao` (name), `latitude`, and `longitude`.
+- MapPicker is lazy-loaded with `React.lazy` + `Suspense` and wrapped in an ErrorBoundary.
+
+## File Attachments
+- Multi-file upload via hidden file input.
+- Accepted types: PDF, PNG, JPEG, XLS, XLSX, DOC, DOCX.
+- Size limits: 10MB for documents, 5MB for photos.
+- Photos are automatically resized to 1024px max via `useImageResize` hook.
+- Each attachment: `{ id, nome, tipo, tamanho, preview, arquivo }`.
+
+## Data Model
+Each project object contains:
+
+```
+{
+  id, nome, cliente, escopo, descricao,
+  localizacao, latitude, longitude,
+  tecnicos: [{ id, nome, irataLevel, windaId }],
+  anexos: [{ id, nome, tipo, tamanho, preview, arquivo }]
+}
+```
+
+Mock data is provided by `mockData.js` with 3 sample projects (Pannonia Gols with 10 technicians, and 2 placeholder projects).
+# Projects Module
+
+<cite>
+**Referenced Files in This Document**
+- [Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
 - [ProjectItem.jsx](file://src/pages/Projetos/components/ProjectItem.jsx)
 - [App.jsx](file://src/App.jsx)
 - [index.css](file://src/index.css)

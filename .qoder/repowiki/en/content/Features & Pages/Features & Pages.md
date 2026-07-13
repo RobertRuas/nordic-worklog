@@ -7,9 +7,12 @@
 - [BottomNav.jsx](file://src/components/BottomNav/BottomNav.jsx)
 - [ThemeContext.jsx](file://src/context/ThemeContext.jsx)
 - [Home.jsx](file://src/pages/Home/Home.jsx)
+- [Registros.jsx](file://src/pages/Registros/Registros.jsx)
+- [RegistroForm.jsx](file://src/pages/Registros/components/RegistroForm.jsx)
+- [RegistroItem.jsx](file://src/pages/Registros/components/RegistroItem.jsx)
 - [Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
+- [ProjectForm.jsx](file://src/pages/Projetos/components/ProjectForm.jsx)
 - [ProjectItem.jsx](file://src/pages/Projetos/components/ProjectItem.jsx)
-- [Entradas.jsx](file://src/pages/Entradas/Entradas.jsx)
 - [Configuracoes.jsx](file://src/pages/Configuracoes/Configuracoes.jsx)
 - [ParametrosBox.jsx](file://src/pages/Configuracoes/components/ParametrosBox.jsx)
 - [ThemeToggle.jsx](file://src/pages/Configuracoes/components/ThemeToggle.jsx)
@@ -29,10 +32,10 @@
 
 ## Introduction
 This document describes the feature pages and components of Nordic Worklog, focusing on:
-- Home page dashboard layout and placeholder structure for future features
-- Projects module with project list display, ProjectItem component, status indicators, and client information
-- Entries module placeholders for work entry logging and time tracking
-- Configuration module including settings panel organization, theme toggle controls, parameter configuration box, and export functionality placeholders
+- Home page dashboard with weekly summaries and quick actions
+- Registros (Entries) module with daily worklog CRUD, auto-fill, validation, and dynamic hour calculation
+- Projects module with full CRUD, technician team management, map-based location picker, and file attachments
+- Configuration module including theme toggle, parameter configuration box, and export placeholders
 It also covers component hierarchies, data structures, and user interaction patterns implemented across these pages.
 
 ## Project Structure
@@ -43,10 +46,14 @@ graph TB
 App["App.jsx"] --> Layout["Layout.jsx"]
 Layout --> BottomNav["BottomNav.jsx"]
 App --> Home["Home.jsx"]
-App --> Entradas["Entradas.jsx"]
+App --> Registros["Registros.jsx"]
 App --> Projetos["Projetos.jsx"]
 App --> Configuracoes["Configuracoes.jsx"]
+Registros --> RegistroForm["RegistroForm.jsx"]
+Registros --> RegistroItem["RegistroItem.jsx"]
+Projetos --> ProjectForm["ProjectForm.jsx"]
 Projetos --> ProjectItem["ProjectItem.jsx"]
+ProjectForm --> MapPicker["MapPicker.jsx"]
 Configuracoes --> ThemeToggle["ThemeToggle.jsx"]
 Configuracoes --> ParametrosBox["ParametrosBox.jsx"]
 ThemeToggle --> ThemeContext["ThemeContext.jsx"]
@@ -54,7 +61,7 @@ index_css["index.css"] -.-> Layout
 index_css -.-> BottomNav
 index_css -.-> Home
 index_css -.-> Projetos
-index_css -.-> Entradas
+index_css -.-> Registros
 index_css -.-> Configuracoes
 ```
 
@@ -81,14 +88,17 @@ index_css -.-> Configuracoes
 ## Core Components
 - App: Holds activeTab state and renders the corresponding page inside Layout.
 - Layout: Provides fixed header and bottom navigation; injects children (active page).
-- BottomNav: Renders four tabs (home, entradas, projetos, configuracoes) with icons and labels.
+- BottomNav: Renders four tabs (home, registros, projetos, configuracoes) with icons and labels.
 - ThemeContext: Provides theme state and toggle function; persists selection and applies dark class to document root.
-- ThemeToggle: Uses ThemeContext to switch between light/dark themes with an animated toggle control.
-- ParametrosBox: Local state for hourly rate, currency, and daily hours; inputs update local values.
-- Configuracoes: Groups general options (theme, export placeholder, account placeholder) and parameters section.
-- Projetos: Displays a small mock list of projects using ProjectItem.
-- ProjectItem: Shows project name, client, and a status badge with conditional styling.
-- Home and Entradas: Placeholder cards indicating empty states ready for future content.
+- Registros: Daily worklog entries with accordion grouping, CRUD via RegistroForm, auto-fill, validation, and dynamic hours.
+- RegistroForm: Full entry form with auto-fill from last record, ISO week auto-calc, standby auto-completion, and field validation.
+- Projetos: Project management with full CRUD via ProjectForm, technician team, map picker, and attachments.
+- ProjectForm: Project CRUD with validation (all fields required + 1 technician), map-based location, and file upload.
+- ProjectItem: Shows project name, client, and status badge.
+- Configuracoes: Groups general options (theme, export, account) and parameters section.
+- ThemeToggle: Uses ThemeContext to switch between light/dark themes.
+- ParametrosBox: Local state for hourly rate, stand-by rate, standard workday, and per diem.
+- Home: Dashboard with summary cards showing weekly hours, project count, and quick actions.
 
 **Section sources**
 - [App.jsx:1-39](file://src/App.jsx#L1-L39)
@@ -134,10 +144,9 @@ Theme-->>User : UI updates colors and accents
 ## Detailed Component Analysis
 
 ### Home Page Dashboard
-- Purpose: Placeholder area for future dashboard widgets and summaries.
-- Layout: A minimal card container with centered text and dashed border to indicate an empty state.
-- Styling: Uses global fade-in animation and CSS variables for text color.
-- Interaction: None currently; ready for future widgets such as totals, charts, or quick actions.
+- Dashboard with summary cards: weekly work/standby/travel hours, active project count.
+- Quick action buttons for creating new registro or project.
+- Uses global fade-in animation and CSS variables for theming.
 
 ```mermaid
 flowchart TD
@@ -154,20 +163,14 @@ Placeholder --> End(["Idle until features added"])
 - [Home.jsx:1-19](file://src/pages/Home/Home.jsx#L1-L19)
 - [index.css:1-86](file://src/index.css#L1-L86)
 
-### Projects Module
-- Data Model:
-  - Project object fields: id (number), nome (string), cliente (string), status (string).
-  - Example statuses include “Ativo” and “Finalizado”.
-- List Rendering:
-  - Projetos maps over a small mock array and renders ProjectItem for each project.
-- ProjectItem:
-  - Displays project name and client.
-  - Status badge shows conditional background and text color based on status value.
-- Interactions:
-  - Currently read-only; no edit/delete flows.
-- Extensibility:
-  - Can be connected to a backend API or state store to fetch real projects.
-  - Status can be extended to more values with additional styling branches.
+### Registros Module (Work Logging)
+- Accordion list grouped by month > week with hour totals (W/S/T badges).
+- RegistroForm: Full CRUD with auto-fill from last record (project, team, turbine).
+- Validation: date (required, not future), project (required), team (≥1 member), hours (at least one > 0), daily progress (required).
+- Dynamic hours: Stand-by auto-fills to complete 10h workday when work/travel changes.
+- Week number: Auto-calculated from date (ISO 8601), read-only.
+- Photo attachments with automatic image resizing (1024px max).
+- Floating "Novo" button for creating new entries.
 
 ```mermaid
 classDiagram
@@ -196,13 +199,13 @@ ProjectItem --> Project : "consumes"
 - [Projetos.jsx:1-31](file://src/pages/Projetos/Projetos.jsx#L1-L31)
 - [ProjectItem.jsx:1-49](file://src/pages/Projetos/components/ProjectItem.jsx#L1-L49)
 
-### Entries Module (Work Logging Placeholders)
-- Purpose: Placeholder for work entry logging and time tracking features.
-- Layout: Empty-state card similar to Home, indicating where entries will appear.
-- Future Enhancements:
-  - Entry form (date, project, description, duration).
-  - Entry list with filters and sorting.
-  - Time tracking integration and summary calculations.
+### Projects Module
+- Full CRUD via ProjectForm with validation.
+- All fields required: nome, cliente, escopo, descricao, localizacao.
+- Technician team management: inline CRUD with nome, irataLevel (L1/L2/L3), windaId. At least 1 required.
+- Map-based location picker (MapPicker) with reverse geocoding via Nominatim.
+- File attachments: PDF, Excel, Word, Photos with size limits and auto image resizing.
+- ProjectItem: compact list display with name, client, and status badge.
 
 ```mermaid
 flowchart TD
@@ -295,7 +298,10 @@ UpdateState --> ReRender["Re-render Layout and Page"]
 ## Dependency Analysis
 - App depends on Layout and all four page modules.
 - Layout depends on BottomNav and Layout.css.
-- Projects depends on ProjectItem.
+- Registros depends on RegistroForm, RegistroItem, and mockData.
+- Projetos depends on ProjectForm, ProjectItem, and mockData.
+- ProjectForm depends on MapPicker (lazy-loaded) and useImageResize hook.
+- RegistroForm depends on useImageResize hook.
 - Configuration depends on ThemeToggle and ParametrosBox.
 - ThemeToggle depends on ThemeContext.
 - All pages rely on global styles from index.css for theming and animations.
@@ -304,10 +310,14 @@ UpdateState --> ReRender["Re-render Layout and Page"]
 graph LR
 App["App.jsx"] --> Layout["Layout.jsx"]
 App --> Home["Home.jsx"]
-App --> Entradas["Entradas.jsx"]
+App --> Registros["Registros.jsx"]
 App --> Projetos["Projetos.jsx"]
 App --> Configuracoes["Configuracoes.jsx"]
+Registros --> RegistroForm["RegistroForm.jsx"]
+Registros --> RegistroItem["RegistroItem.jsx"]
+Projetos --> ProjectForm["ProjectForm.jsx"]
 Projetos --> ProjectItem["ProjectItem.jsx"]
+ProjectForm --> MapPicker["MapPicker.jsx"]
 Configuracoes --> ThemeToggle["ThemeToggle.jsx"]
 Configuracoes --> ParametrosBox["ParametrosBox.jsx"]
 ThemeToggle --> ThemeContext["ThemeContext.jsx"]
@@ -341,22 +351,24 @@ index_css["index.css"] --> AllPages["All Pages"]
   - Parameter inputs are local to ParametrosBox; consider lifting state if cross-page persistence is needed.
 - Potential Optimizations:
   - Memoize expensive computations when adding heavy logic to pages.
-  - Use React.memo for list items like ProjectItem if lists grow large.
-  - Defer non-critical imports if the app scales.
+  - Use React.memo for list items like ProjectItem and RegistroItem if lists grow large.
+  - MapPicker is already lazy-loaded to reduce initial bundle size.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
 - Theme not applying:
-  - Ensure ThemeProvider wraps the app and that the document root receives the ‘dark’ class when toggling.
+  - Ensure ThemeProvider wraps the app and that the document root receives the 'dark' class when toggling.
   - Verify CSS variables are defined for both light and dark themes.
 - Navigation not switching:
   - Confirm activeTab state is updated and passed to Layout and BottomNav.
   - Check that renderPage returns the correct page component for each tab ID.
-- Parameter inputs not updating:
-  - Validate onChange handlers in ParametrosBox and ensure state setters are called with parsed numeric values.
-- Export placeholder behavior:
-  - The current implementation shows an alert; replace with actual export logic when integrating backend or file generation.
+- Validation not triggering:
+  - Ensure `validar()` is called before `onSalvar()` in handleSalvar.
+  - Check that error state is properly cleared when fields are edited.
+- Map picker not loading:
+  - MapPicker is lazy-loaded; ensure Suspense fallback is rendered.
+  - Check ErrorBoundary catches Leaflet initialization errors.
 
 **Section sources**
 - [ThemeContext.jsx:19-32](file://src/context/ThemeContext.jsx#L19-L32)
@@ -366,9 +378,9 @@ index_css["index.css"] --> AllPages["All Pages"]
 - [Configuracoes.jsx:31-38](file://src/pages/Configuracoes/Configuracoes.jsx#L31-L38)
 
 ## Conclusion
-Nordic Worklog provides a clean, minimal foundation with four primary feature pages:
-- Home: Placeholder for future dashboard elements.
-- Projects: Functional list view with ProjectItem displaying name, client, and status.
-- Entries: Placeholder for logging and tracking work entries.
-- Configuration: Settings panel with theme toggle, export placeholder, account placeholder, and parameter configuration box.
-The architecture leverages simple state-driven navigation, a global theme context, and reusable components, making it straightforward to extend with real data and advanced features while maintaining a cohesive design system.
+Nordic Worklog provides a functional foundation for daily work tracking on wind turbine maintenance projects:
+- Home: Dashboard with weekly summaries and quick actions.
+- Registros: Full worklog entry system with auto-fill, validation, dynamic hours, and photo attachments.
+- Projects: Project management with technician teams, map-based location, and file attachments.
+- Configuration: Settings panel with theme toggle, export placeholder, and parameter configuration box.
+The architecture leverages state-driven navigation, a global theme context, form validation patterns, and reusable components.

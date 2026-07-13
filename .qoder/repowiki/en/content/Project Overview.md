@@ -12,8 +12,11 @@
 - [src/components/BottomNav/BottomNav.jsx](file://src/components/BottomNav/BottomNav.jsx)
 - [src/context/ThemeContext.jsx](file://src/context/ThemeContext.jsx)
 - [src/pages/Home/Home.jsx](file://src/pages/Home/Home.jsx)
-- [src/pages/Entradas/Entradas.jsx](file://src/pages/Entradas/Entradas.jsx)
+- [src/pages/Registros/Registros.jsx](file://src/pages/Registros/Registros.jsx)
+- [src/pages/Registros/components/RegistroForm.jsx](file://src/pages/Registros/components/RegistroForm.jsx)
+- [src/pages/Registros/components/RegistroItem.jsx](file://src/pages/Registros/components/RegistroItem.jsx)
 - [src/pages/Projetos/Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
+- [src/pages/Projetos/components/ProjectForm.jsx](file://src/pages/Projetos/components/ProjectForm.jsx)
 - [src/pages/Projetos/components/ProjectItem.jsx](file://src/pages/Projetos/components/ProjectItem.jsx)
 - [src/pages/Configuracoes/Configuracoes.jsx](file://src/pages/Configuracoes/Configuracoes.jsx)
 - [src/pages/Configuracoes/components/ThemeToggle.jsx](file://src/pages/Configuracoes/components/ThemeToggle.jsx)
@@ -32,22 +35,26 @@
 9. Conclusion
 
 ## Introduction
-Nordic Worklog is a minimal, mobile-first React application designed for personal work tracking and lightweight project management. It provides:
-- Work entry tracking (placeholder page ready to be extended)
-- Project listing and management (with a sample list and item component)
-- A configuration system including theme switching and editable parameters such as hourly rate and default daily hours
+Nordic Worklog is a minimal, mobile-first React application designed for daily work tracking and project management on wind turbine maintenance sites. It provides:
+- Daily work entry logging (Registros) with auto-fill from last record, automatic ISO week calculation, dynamic stand-by hour completion, and full field validation
+- Project management with full CRUD, technician team management, map-based location picker, and file attachments
+- Weather card with 5-day forecast, GPS location, and map-based city selector
+- A configuration system including theme switching and editable parameters (hourly rate, stand-by rate, standard workday, per diem)
 - Responsive design with a fixed header and bottom navigation bar
+- Light/dark theme support with CSS variables
 
 Target audience and use cases:
-- Freelancers and consultants who need a simple way to log time entries and keep track of projects
-- Small teams or individuals seeking a clean, distraction-free interface for daily work logs
-- Developers looking for a minimal React + Vite starter that demonstrates modern patterns like Context-based theming and local state-driven configuration
+- Wind turbine technicians and team leaders who need to log daily work activities
+- Teams managing maintenance projects with multiple technicians and turbine locations
+- Field workers tracking working hours, stand-by time, and travel time per project
 
 Technology stack:
-- React 19.2.7 and React DOM 19.2.7
-- Vite 8.1.1 with the official React plugin
-- Modern JavaScript modules (ESM), strict mode rendering, and CSS custom properties for theming
-- react-icons for lightweight iconography
+- React 19 and Vite 8 with the official React plugin
+- react-icons (Feather Icons) for lightweight iconography
+- react-leaflet and Leaflet for interactive map components
+- OpenWeather API for weather forecasts
+- Google Fonts (Outfit) for typography
+- Docker for containerized development and deployment
 
 Practical examples:
 - Switch between light and dark themes from Settings; the preference persists across sessions
@@ -71,8 +78,11 @@ MainJSX --> App["src/App.jsx"]
 App --> Layout["src/components/Layout/Layout.jsx"]
 Layout --> BottomNav["src/components/BottomNav/BottomNav.jsx"]
 App --> Home["src/pages/Home/Home.jsx"]
-App --> Entradas["src/pages/Entradas/Entradas.jsx"]
+App --> Registros["src/pages/Registros/Registros.jsx"]
+Registros --> RegistroForm["src/pages/Registros/components/RegistroForm.jsx"]
+Registros --> RegistroItem["src/pages/Registros/components/RegistroItem.jsx"]
 App --> Projetos["src/pages/Projetos/Projetos.jsx"]
+Projetos --> ProjectForm["src/pages/Projetos/components/ProjectForm.jsx"]
 Projetos --> ProjectItem["src/pages/Projetos/components/ProjectItem.jsx"]
 App --> Configuracoes["src/pages/Configuracoes/Configuracoes.jsx"]
 Configuracoes --> ThemeToggle["src/pages/Configuracoes/components/ThemeToggle.jsx"]
@@ -113,8 +123,14 @@ Configuracoes --> ParametrosBox["src/pages/Configuracoes/components/ParametrosBo
 - Configuration:
   - Configuracoes groups general options and parameter inputs.
   - ParametrosBox holds local state for hourly rate and default daily hours, demonstrating how user preferences can drive calculations later.
+- Work entries (Registros):
+  - Registros displays daily work entries grouped by month and week in an accordion layout.
+  - RegistroForm provides full CRUD with auto-fill from last record, automatic week calculation, dynamic stand-by completion, and validation.
+  - New records auto-fill project, team, and turbine location from the most recent entry.
 - Projects:
-  - Projetos displays a small sample dataset and renders each item via ProjectItem.
+  - Projetos displays projects with full CRUD via ProjectForm.
+  - ProjectForm includes technician team management, map-based location picker, and file attachments.
+  - All project fields are validated as required (except attachments), with at least 1 team member.
 
 Key behaviors:
 - Tab navigation is state-driven and does not rely on a router library.
@@ -248,30 +264,56 @@ UpdateState --> Ready["Values available for calculations"]
 - [src/pages/Configuracoes/Configuracoes.jsx:1-70](file://src/pages/Configuracoes/Configuracoes.jsx#L1-L70)
 - [src/pages/Configuracoes/components/ParametrosBox.jsx:1-85](file://src/pages/Configuracoes/components/ParametrosBox.jsx#L1-L85)
 
-### Projects Listing
-- Projetos renders a small sample dataset and maps it to ProjectItem components.
-- ProjectItem displays project name, client, and status badge.
+### Work Entries (Registros)
+- Registros manages daily worklog entries with accordion grouping by month and week.
+- RegistroForm handles create/edit/delete with auto-fill, validation, and dynamic hour calculation.
+- Auto-fill: New records inherit project, team, and turbine data from the last record.
+- Validation: Date (required, not future), project (required), team (≥1 member), hours (at least one > 0), daily progress (required).
+- Dynamic hours: Stand-by auto-fills to complete the standard 10h workday when work or travel changes.
+- Week number: Auto-calculated from date using ISO 8601.
+
+### Projects and ProjectForm
+- Projetos manages projects with full CRUD operations.
+- ProjectForm validates all required fields: nome, cliente, escopo, descricao, localizacao.
+- Technician team: At least 1 technician required per project.
+- Map-based location picker (MapPicker) with reverse geocoding via Nominatim.
+- File attachments with size limits and automatic image resizing.
+
+### Configuration and Parameters
+- Configuracoes groups general options and parameter settings.
+- ParametrosBox stores local state for hourly rate (€/h), stand-by rate (%), standard workday (h), and per diem (€).
 
 ```mermaid
 classDiagram
-class Projetos {
-+listaProjetos
-+render()
+class Registros {
++registros : Array
++abrirNovo()
++salvarRegistro()
 }
-class ProjectItem {
-+projeto
-+render()
+class RegistroForm {
++form : Object
++validar() : boolean
++handleSalvar()
 }
-Projetos --> ProjectItem : "renders many"
+class ProjectForm {
++form : Object
++validar() : boolean
++handleSalvar()
+}
+Registros --> RegistroForm : "renders"
+Projetos --> ProjectForm : "renders"
 ```
 
 **Diagram sources**
-- [src/pages/Projetos/Projetos.jsx:1-31](file://src/pages/Projetos/Projetos.jsx#L1-L31)
-- [src/pages/Projetos/components/ProjectItem.jsx:1-49](file://src/pages/Projetos/components/ProjectItem.jsx#L1-L49)
+- [src/pages/Registros/Registros.jsx](file://src/pages/Registros/Registros.jsx)
+- [src/pages/Registros/components/RegistroForm.jsx](file://src/pages/Registros/components/RegistroForm.jsx)
+- [src/pages/Projetos/Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
+- [src/pages/Projetos/components/ProjectForm.jsx](file://src/pages/Projetos/components/ProjectForm.jsx)
 
 **Section sources**
-- [src/pages/Projetos/Projetos.jsx:1-31](file://src/pages/Projetos/Projetos.jsx#L1-L31)
-- [src/pages/Projetos/components/ProjectItem.jsx:1-49](file://src/pages/Projetos/components/ProjectItem.jsx#L1-L49)
+- [src/pages/Registros/Registros.jsx](file://src/pages/Registros/Registros.jsx)
+- [src/pages/Projetos/Projetos.jsx](file://src/pages/Projetos/Projetos.jsx)
+- [src/pages/Projetos/components/ProjectForm.jsx](file://src/pages/Projetos/components/ProjectForm.jsx)
 
 ### Conceptual Overview
 This section summarizes how Nordic Worklog fits into everyday workflows without analyzing specific files.
@@ -279,11 +321,14 @@ This section summarizes how Nordic Worklog fits into everyday workflows without 
 ```mermaid
 flowchart TD
 User["User opens app"] --> Navigate["Navigate via bottom bar"]
-Navigate --> Track["Log work entries (future)"]
-Navigate --> Manage["Manage projects (sample data)"]
+Navigate --> Track["Log daily work entries (Registros)"]
+Navigate --> Manage["Manage projects and technicians"]
+Navigate --> Weather["Check weather forecast"]
 Navigate --> Configure["Adjust theme and parameters"]
 Configure --> Persist["Preferences saved locally"]
-Track --> Summarize["Summarize totals using configured parameters"]
+Track --> AutoFill["Auto-fill from last record"]
+Track --> Validate["Validate required fields"]
+Track --> Summarize["Summarize totals by week"]
 ```
 
 [No sources needed since this diagram shows conceptual workflow, not actual code structure]
@@ -293,13 +338,17 @@ External dependencies and build tooling:
 - React and ReactDOM provide the UI runtime.
 - Vite powers development server, HMR, and production builds.
 - The React plugin enables JSX transformation.
-- react-icons supplies lightweight icons used in navigation and settings.
+- react-icons supplies lightweight Feather Icons used throughout the UI.
+- react-leaflet and Leaflet provide interactive maps for location picking.
+- OpenWeather API integration for weather forecasts.
+- Docker for containerized builds and deployment.
 
 ```mermaid
 graph LR
 Pkg["package.json"] --> React["react ^19.2.7"]
 Pkg --> ReactDOM["react-dom ^19.2.7"]
 Pkg --> ReactIcons["react-icons ^5.7.0"]
+Pkg --> Leaflet["react-leaflet + leaflet"]
 Pkg --> Vite["vite ^8.1.1 (dev)"]
 Pkg --> Plugin["@vitejs/plugin-react ^6.0.3 (dev)"]
 ViteCfg["vite.config.js"] --> Plugin
@@ -335,6 +384,6 @@ Common issues and resolutions:
 - [vite.config.js:1-12](file://vite.config.js#L1-L12)
 
 ## Conclusion
-Nordic Worklog offers a focused, minimal foundation for personal work tracking and project oversight. Its architecture emphasizes simplicity: state-driven navigation, a reusable layout, and a context-based theming system. The configuration surface allows users to tailor defaults that will power future calculations. With React 19.2.7 and Vite 8.1.1, the project is well-positioned for incremental growth while remaining easy to understand and extend.
+Nordic Worklog offers a focused, minimal foundation for daily work tracking on wind turbine maintenance projects. Its architecture emphasizes simplicity: state-driven navigation, a reusable layout, and a context-based theming system. The Registros module provides full work entry logging with auto-fill, validation, and dynamic hour calculation. The Projects module supports full CRUD with technician management and map-based location picking. The configuration surface allows users to tailor defaults that power work calculations. With React 19 and Vite 8, the project is well-positioned for incremental growth while remaining easy to understand and extend.
 
 [No sources needed since this section summarizes without analyzing specific files]

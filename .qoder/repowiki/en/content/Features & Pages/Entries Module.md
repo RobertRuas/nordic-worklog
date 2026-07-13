@@ -1,3 +1,107 @@
+# Entries Module (Registros)
+
+<cite>
+**Referenced Files in This Document**
+- [Registros.jsx](file://src/pages/Registros/Registros.jsx)
+- [RegistroForm.jsx](file://src/pages/Registros/components/RegistroForm.jsx)
+- [RegistroItem.jsx](file://src/pages/Registros/components/RegistroItem.jsx)
+- [mockData.js](file://src/data/mockData.js)
+- [App.jsx](file://src/App.jsx)
+</cite>
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Core Components](#core-components)
+3. [Auto-fill from Last Record](#auto-fill-from-last-record)
+4. [Validation System](#validation-system)
+5. [Dynamic Hour Calculation](#dynamic-hour-calculation)
+6. [Week Auto-calculation](#week-auto-calculation)
+7. [Accordion List Layout](#accordion-list-layout)
+8. [Data Model](#data-model)
+
+## Introduction
+The Registros module is the core work logging feature of Nordic Worklog. It manages daily work entries for wind turbine maintenance teams, providing:
+- Accordion-based list view grouped by month and week
+- Full CRUD via RegistroForm with auto-fill, validation, and dynamic hour calculation
+- Auto-fill from last record for project, team, and turbine location
+- Required field validation with non-intrusive error hints
+- Automatic stand-by hour completion to fill the standard 10h workday
+- ISO 8601 week number auto-calculated from the selected date
+
+## Core Components
+- **Registros** (page): Owns the registros state, manages accordion grouping by month/week, handles list→detail navigation, and provides the "Novo" floating action button.
+- **RegistroForm** (form): Full create/edit/delete form with sections for general info, team, turbine/location, hours/production, daily progress, and photos. Includes validation, auto-fill, and dynamic standby calculation.
+- **RegistroItem** (list item): Compact display of a single registro in the accordion list, showing work/standby/travel hours with color-coded badges.
+
+## Auto-fill from Last Record
+When creating a new record (`abrirNovo` in Registros.jsx):
+1. Finds the most recent record by sorting all registros by date descending.
+2. Pre-fills the following fields from that record:
+   - `projeto` — project name
+   - `time` — full team array (technicians)
+   - `localTurbinaNo`, `turbinaIdNo`, `maxBoglTowerNo`, `bladeNo` — turbine location fields
+   - `timeNo`, `nomeTecnico`, `funcao`, `teamLeader` — team info fields
+3. Date is set to today, week is auto-calculated, and hours/progress are reset to empty/zero.
+
+## Validation System
+RegistroForm validates on save (`handleSalvar` → `validar`):
+
+| Field | Rule | Error key |
+|-------|------|-----------|
+| Data (`dia`) | Required, must be ≤ today | `erros.dia` |
+| Projeto | Required (non-empty) | `erros.projeto` |
+| Time | At least 1 team member | `erros.time` |
+| Hours | `work + standby + travel > 0` | `erros.horas` |
+| Daily Progress | Required (non-empty) | `erros.dailyProgress` |
+
+Validation UI:
+- A red hint banner appears at the top of the card: "Verifique os campos obrigatórios destacados abaixo."
+- Individual fields show error text next to their label and red border color.
+- Errors clear automatically when the user edits the field.
+- Date input has `max` attribute set to today's date to prevent future selection.
+
+ProjectForm follows the same pattern with validation for: nome, cliente, escopo, descricao, localizacao (all required), and at least 1 technician.
+
+## Dynamic Hour Calculation
+When `workingHours` or `travelHours` change, a `useEffect` automatically adjusts `standbyHours`:
+- Formula: `standbyHours = JORNADA_PADRAO - workingHours - travelHours`
+- `JORNADA_PADRAO` is 10 hours (hardcoded constant in RegistroForm).
+- Only triggers when the total is less than 10h and at least one of work/travel is > 0.
+- A `useRef` flag (`ajusteStandbyRef`) prevents recursive updates.
+- The user can still manually override stand-by hours at any time.
+- A hint below the hours section shows: "Stand-by preenche automaticamente para completar 10h".
+
+## Week Auto-calculation
+The `semana` field is read-only (informational only). A `useEffect` watches `form.dia`:
+- Calculates ISO 8601 week number from the selected date.
+- Updates `form.semana` automatically.
+- The field displays as a styled read-only paragraph: "Sem. {number}".
+
+## Accordion List Layout
+Registros groups entries in a nested accordion:
+- **Level 1**: Month (e.g., "Jul 2026")
+- **Level 2**: Week number (e.g., "Sem. 28") with hour totals (W/S/T badges)
+- **Level 3**: Individual registro items
+
+The most recent week is expanded by default. Each week header shows totals for working, stand-by, and travel hours across all its registros.
+
+## Data Model
+Each registro object contains:
+
+```
+{
+  id, semana, dia, projeto,
+  timeNo, nomeTecnico, funcao, teamLeader,
+  localTurbinaNo, turbinaIdNo, maxBoglTowerNo, bladeNo,
+  wtgDowntimeHours, standbyReason,
+  workingHours, standbyHours, travelHours,
+  dailyProgress,
+  time: [{ id, nome, irataLevel, windaId }],
+  fotos: [{ id, nome, tamanho, preview, arquivo }]
+}
+```
+
+Mock data is provided by `mockData.js` with 14 sample registros spanning weeks 26-28.
 # Entries Module
 
 <cite>
