@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
 import EmailItem from './components/EmailItem';
 import EmailRead from './components/EmailRead';
 import EmailCompose from './components/EmailCompose';
@@ -10,41 +10,67 @@ import { getAuth } from 'firebase/auth';
 
 /**
  * Página de E-Mail — Nordic Worklog
- * Cliente de e-mail com lista de entrada, leitura, composição e configurações.
- * Busca e-mails reais do servidor IMAP via API backend.
+ * Cliente de e-mail completo com:
+ * - Lista com paginação e busca
+ * - Leitura, resposta e encaminhamento
+ * - Exclusão via API (IMAP)
+ * - Atualização automática periódica
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
- * @param {Array} emails - Lista de e-mails do Firestore.
+ * @param {Array} emails - Lista de e-mails do Firestore (fallback).
  * @param {function} salvarEmail - Função para salvar e-mail no Firestore.
  * @param {function} marcarLido - Função para marcar e-mail como lido.
  * @param {function} excluirEmail - Função para excluir e-mail do Firestore.
  */
 export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, excluirEmail, registerGoBack }) {
-  // Configuração do servidor de e-mail (do Firestore)
   const { emailConfig, loading: configLoading, salvarEmailConfig, configValida } = useEmailConfig();
   const { user } = useAuth();
 
-  // Visualização atual: 'lista', 'leitura', 'compor', 'configuracoes'
-  const [view, setView] = useState('lista');
-  // E-mail selecionado para leitura
+  // ═══ Estado de views ═══
+  const [view, setView] = useState('lista'); // 'lista' | 'leitura' | 'compor' | 'configuracoes'
   const [emailSelecionado, setEmailSelecionado] = useState(null);
-  // Estado de atualização
-  const [atualizando, setAtualizando] = useState(false);
-  // Mensagem de status da atualização
-  const [statusMsg, setStatusMsg] = useState('');
-  const [statusTipo, setStatusTipo] = useState(''); // 'sucesso' | 'erro'
+  const [modoCompor, setModoCompor] = useState(null); // null | { responderPara } | { encaminharEmail }
+
+  // ═══ E-mails vindos da API ═══
+  const [emailsApi, setEmailsApi] = useState([]);
 
   // ═══ Paginação ═══
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [porPagina] = useState(10);
   const [totalPaginas, setTotalPaginas] = useState(1);
-  // E-mails vindos da API (com paginação)
-  const [emailsApi, setEmailsApi] = useState([]);
+  const [totalEmails, setTotalEmails] = useState(0);
 
-  // Ref para a função voltarLista (usado pelo gesto de swipe)
+  // ═══ Busca ═══
+  const [busca, setBusca] = useState('');
+  const [mostrarBusca, setMostrarBusca] = useState(false);
+
+  // ═══ Atualização automática ═══
+  const [atualizando, setAtualizando] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [statusTipo, setStatusTipo] = useState('');
+  const [ultimoRefresh, setUltimoRefresh] = useState(null);
+  const intervaloRef = useRef(null);
+  const INTERVALO_MS = 5 * 60 * 1000; // 5 minutos
+
+  // Ref para voltar à lista (swipe)
   const voltarListaRef = React.useRef(null);
 
-  // Registra a função de voltar para o gesto de swipe
+  // ═══ Auto-refresh a cada 5 minutos ═══
+  useEffect(() => {
+    if (!configValida()) return;
+
+    // Buscar imediatamente ao montar
+    buscarEmailsPagina(1, true);
+
+    // Configurar intervalo
+    intervaloRef.current = setInterval(() => {
+      buscarEmailsPagina(paginaAtual, true);
+    }, INTERVALO_MS);
+
+    return () => clearInterval(intervaloRef.current);
+  }, [configValida]);
+
+  // Registra função voltar para swipe
   React.useEffect(() => {
     if (registerGoBack) {
       registerGoBack(view !== 'lista' ? () => voltarListaRef.current?.() : null);
@@ -52,23 +78,161 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     return () => { if (registerGoBack) registerGoBack(null); };
   }, [view]);
 
-  // ═══ Navegação entre views ═══
+  // ═══ Função central de busca na API ═══
+  const buscarEmailsPagina = useCallback(async (pagina = 1, silencioso = false) => {
+    if (!configValida()) return;
+    if (!silencioso) setAtualizando(true);
+    setStatusMsg('');
+    setStatusTipo('');
 
-  const abrirEmail = (email) => {
-    marcarLido(email.id);
-    setEmailSelecionado({ ...email, lido: true });
-    setView('leitura');
-    if (onTitleChange) onTitleChange('E-Mail');
+    try {
+      const auth = getAuth();
+      if (!auth.currentUser) return;
+      const token = await auth.currentUser.getIdToken();
+
+      const apiUrl = `${window.location.origin}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}`;
+      let resposta;
+      try {
+        resposta = await fetch(apiUrl, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch {
+        if (!silencioso) throw new Error('Servidor indisponível');
+        return;
+      }
+
+      const dados = await resposta.json().catch(() => null);
+      if (!dados) {
+        if (!silencioso) throw new Error('Resposta inválida');
+        return;
+      }
+      if (!resposta.ok) {
+        if (!silencioso) throw new Error(dados.erro || 'Falha ao buscar');
+        return;
+      }
+
+      setEmailsApi(dados.emails || []);
+      setPaginaAtual(dados.pagina || 1);
+      setTotalPaginas(dados.totalPaginas || 1);
+      setTotalEmails(dados.total || 0);
+      setUltimoRefresh(new Date());
+
+      if (!silencioso && dados.total > 0) {
+        setStatusMsg(`${dados.total} e-mail(is) — pág. ${dados.pagina}/${dados.totalPaginas}`);
+        setStatusTipo('sucesso');
+        setTimeout(() => { setStatusMsg(''); setStatusTipo(''); }, 3000);
+      }
+    } catch (erro) {
+      if (!silencioso) {
+        setStatusMsg(erro.message || 'Erro ao atualizar');
+        setStatusTipo('erro');
+      }
+    } finally {
+      setAtualizando(false);
+    }
+  }, [configValida, porPagina, paginaAtual]);
+
+  // ═══ Ações de e-mail ═══
+
+  const handleAtualizar = () => buscarEmailsPagina(paginaAtual);
+
+  const irPagina = (novaPagina) => {
+    if (novaPagina >= 1 && novaPagina <= totalPaginas) {
+      buscarEmailsPagina(novaPagina);
+    }
   };
 
+  // ═══ Carregando e-mail completo ═══
+  const [carregandoEmail, setCarregandoEmail] = useState(false);
+
+  // Abrir e-mail para leitura — busca o corpo completo via API
+  const abrirEmail = async (email) => {
+    // Marcar como lido na API (em background)
+    try {
+      const auth = getAuth();
+      if (auth.currentUser && email.uid) {
+        const token = await auth.currentUser.getIdToken();
+        fetch(`${window.location.origin}/api/email/mark-read`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: email.uid, lido: true }),
+        }).catch(() => {});
+      }
+    } catch {}
+
+    // Atualizar estado local (marcar como lido)
+    setEmailsApi(prev => prev.map(e => e.id === email.id ? { ...e, lido: true } : e));
+
+    // Buscar e-mail completo (com corpo) via API
+    if (email.uid && !email.corpo) {
+      setCarregandoEmail(true);
+      setEmailSelecionado({ ...email, lido: true });
+      setView('leitura');
+      if (onTitleChange) onTitleChange('E-Mail');
+
+      try {
+        const auth = getAuth();
+        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+        const resposta = await fetch(`${window.location.origin}/api/email/${email.uid}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const dados = await resposta.json().catch(() => null);
+        if (dados?.sucesso && dados.email) {
+          setEmailSelecionado({ ...dados.email, lido: true });
+        }
+      } catch {}
+      setCarregandoEmail(false);
+    } else {
+      // Já tem o corpo (fallback)
+      setEmailSelecionado({ ...email, lido: true });
+      setView('leitura');
+      if (onTitleChange) onTitleChange('E-Mail');
+    }
+  };
+
+  // Excluir e-mail via API
+  const handleExcluir = async (id, uid) => {
+    try {
+      const auth = getAuth();
+      if (auth.currentUser && uid) {
+        const token = await auth.currentUser.getIdToken();
+        await fetch(`${window.location.origin}/api/email/delete/${uid}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
+
+    // Remover da lista local
+    setEmailsApi(prev => prev.filter(e => e.id !== id));
+    voltarLista();
+  };
+
+  // Responder e-mail
+  const handleResponder = (email) => {
+    setModoCompor({ responderPara: email });
+    setView('compor');
+    if (onTitleChange) onTitleChange('Responder');
+  };
+
+  // Encaminhar e-mail
+  const handleEncaminhar = (email) => {
+    setModoCompor({ encaminharEmail: email });
+    setView('compor');
+    if (onTitleChange) onTitleChange('Encaminhar');
+  };
+
+  // Voltar à lista
   const voltarLista = () => {
     setEmailSelecionado(null);
+    setModoCompor(null);
     setView('lista');
     if (onTitleChange) onTitleChange('E-Mail');
   };
   voltarListaRef.current = voltarLista;
 
   const abrirCompor = () => {
+    setModoCompor(null);
     setView('compor');
     if (onTitleChange) onTitleChange('Novo E-Mail');
   };
@@ -78,119 +242,61 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     if (onTitleChange) onTitleChange('Configurações');
   };
 
-  // ═══ Ações ═══
+  // ═══ Filtro de busca ═══
+  const listaFiltrada = busca
+    ? emailsApi.filter(e =>
+        e.assunto?.toLowerCase().includes(busca.toLowerCase()) ||
+        e.de?.toLowerCase().includes(busca.toLowerCase())
+      )
+    : emailsApi;
 
-  // Atualizar caixa de entrada — chama a API backend para buscar e-mails do IMAP
-  const handleAtualizar = useCallback(async (pagina = 1) => {
-    if (atualizando || !configValida()) return;
-
-    setAtualizando(true);
-    setStatusMsg('');
-    setStatusTipo('');
-
-    try {
-      // Obter o token do Firebase Auth
-      const auth = getAuth();
-      if (!auth.currentUser) {
-        setStatusMsg('Sessão expirada. Faça login novamente.');
-        setStatusTipo('erro');
-        setAtualizando(false);
-        return;
-      }
-      const token = await auth.currentUser.getIdToken();
-
-      // Chamar a API backend com paginação (URL absoluta para Safari)
-      const apiUrl = `${window.location.origin}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}`;
-      let resposta;
-      try {
-        resposta = await fetch(apiUrl, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-      } catch (fetchErro) {
-        throw new Error('Servidor indisponível. Verifique sua conexão.');
-      }
-
-      const dados = await resposta.json().catch(() => null);
-      if (!dados) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
-      if (!resposta.ok) {
-        throw new Error(dados.erro || 'Falha ao buscar e-mails');
-      }
-
-      // Atualizar estado com dados da API
-      setEmailsApi(dados.emails || []);
-      setPaginaAtual(dados.pagina || 1);
-      setTotalPaginas(dados.totalPaginas || 1);
-
-      if (dados.total > 0) {
-        setStatusMsg(`${dados.total} e-mail(is) — página ${dados.pagina}/${dados.totalPaginas}`);
-        setStatusTipo('sucesso');
-      } else {
-        setStatusMsg('Nenhum e-mail encontrado');
-        setStatusTipo('sucesso');
-      }
-
-      // Limpar mensagem após 4 segundos
-      setTimeout(() => { setStatusMsg(''); setStatusTipo(''); }, 4000);
-    } catch (erro) {
-      console.error('Erro ao atualizar e-mails:', erro);
-      setStatusMsg(erro.message || 'Erro ao atualizar');
-      setStatusTipo('erro');
-    } finally {
-      setAtualizando(false);
-    }
-  }, [atualizando, configValida, porPagina]);
-
-  // Navegar para página anterior/próxima
-  const irPagina = (novaPagina) => {
-    if (novaPagina >= 1 && novaPagina <= totalPaginas) {
-      handleAtualizar(novaPagina);
-    }
-  };
-
-  // Enviar novo e-mail
-  const enviarEmail = async (novoEmail) => {
-    const emailId = `email_${Date.now()}`;
-    await salvarEmail(emailId, {
-      ...novoEmail,
-      lido: true,
-      data: new Date().toISOString(),
-    });
-    voltarLista();
-  };
-
-  // Excluir e-mail
-  const handleExcluirEmail = async (id) => {
-    await excluirEmail(id);
-    voltarLista();
-  };
-
-  // ═══ Renderização condicional por view ═══
+  // ═══ Renderização condicional ═══
 
   if (view === 'leitura' && emailSelecionado) {
-    return <EmailRead email={emailSelecionado} onVoltar={voltarLista} onExcluir={handleExcluirEmail} />;
+    return (
+      <EmailRead
+        email={emailSelecionado}
+        carregando={carregandoEmail}
+        onVoltar={voltarLista}
+        onExcluir={handleExcluir}
+        onResponder={handleResponder}
+        onEncaminhar={handleEncaminhar}
+      />
+    );
   }
 
   if (view === 'compor') {
-    return <EmailCompose onVoltar={voltarLista} onEnviar={enviarEmail} emailConta={emailConfig.email || ''} />;
+    return (
+      <EmailCompose
+        onVoltar={voltarLista}
+        onEnviado={() => buscarEmailsPagina(1)}
+        emailConta={emailConfig.email || ''}
+        responderPara={modoCompor?.responderPara}
+        encaminharEmail={modoCompor?.encaminharEmail}
+      />
+    );
   }
 
   if (view === 'configuracoes') {
     return <EmailSettings config={emailConfig} salvarEmailConfig={salvarEmailConfig} onVoltar={voltarLista} />;
   }
 
-  // ═══ View: Lista de entrada (Inbox) ═══
-
+  // ═══ View: Lista de entrada ═══
   const naoLidos = emailsApi.filter((e) => !e.lido).length;
-  // Usar e-mails da API se disponíveis, senão usar os do Firestore
-  const listaEmails = emailsApi.length > 0 ? emailsApi : emails;
   const configurado = !configLoading && configValida();
+
+  // Formatar tempo desde último refresh
+  const tempoDesdeRefresh = () => {
+    if (!ultimoRefresh) return '';
+    const diff = Math.floor((Date.now() - ultimoRefresh.getTime()) / 60000);
+    if (diff < 1) return 'agora';
+    if (diff < 60) return `${diff}min`;
+    return `${Math.floor(diff / 60)}h`;
+  };
 
   return (
     <div className="fade-in">
-      {/* ═══ Aviso: configuração pendente ═══ */}
+      {/* Aviso: configuração pendente */}
       {!configLoading && !configurado && (
         <div
           onClick={abrirConfig}
@@ -198,7 +304,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '10px 12px', marginBottom: '10px',
             backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-            borderRadius: '8px', cursor: 'pointer', transition: 'opacity 0.2s',
+            borderRadius: '8px', cursor: 'pointer',
           }}
         >
           <FiAlertTriangle style={{ fontSize: '0.8rem', color: '#f59e0b', flexShrink: 0 }} />
@@ -209,21 +315,33 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       )}
 
       <div className="card">
-        {/* Cabeçalho da inbox com contador e botões */}
+        {/* Cabeçalho */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             Caixa de Entrada
             {naoLidos > 0 && (
               <span style={{
                 fontSize: '0.6rem', fontWeight: 600, padding: '1px 7px',
-                borderRadius: '10px', background: 'var(--accent-color)',
-                color: 'var(--bg-primary)',
+                borderRadius: '10px', background: 'var(--accent-color)', color: 'var(--bg-primary)',
               }}>
                 {naoLidos}
               </span>
             )}
           </h2>
           <div style={{ display: 'flex', gap: '6px' }}>
+            {/* Botão Busca */}
+            <button
+              onClick={() => setMostrarBusca(!mostrarBusca)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '30px', height: '30px', borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                color: mostrarBusca ? 'var(--accent-color)' : 'var(--text-secondary)',
+              }}
+              title="Buscar"
+            >
+              <FiSearch style={{ fontSize: '0.8rem' }} />
+            </button>
             {/* Botão Atualizar */}
             <button
               onClick={handleAtualizar}
@@ -233,12 +351,12 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
                 width: '30px', height: '30px', borderRadius: '6px',
                 border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
                 cursor: (atualizando || !configurado) ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s', opacity: (atualizando || !configurado) ? 0.4 : 1,
+                opacity: (atualizando || !configurado) ? 0.4 : 1,
               }}
-              title="Atualizar caixa de entrada"
+              title="Atualizar"
             >
               <FiRefreshCw
-                style={{ fontSize: '0.8rem', transition: 'transform 0.8s', transform: atualizando ? 'rotate(360deg)' : 'rotate(0deg)' }}
+                style={{ fontSize: '0.8rem', transform: atualizando ? 'rotate(360deg)' : 'rotate(0deg)', transition: 'transform 0.8s' }}
               />
             </button>
             {/* Botão Configurações */}
@@ -249,14 +367,40 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
                 width: '30px', height: '30px', borderRadius: '6px',
                 border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
               }}
-              title="Configurações do servidor"
+              title="Configurações"
             >
               <FiSettings style={{ fontSize: '0.85rem' }} />
             </button>
           </div>
         </div>
 
-        {/* ═══ Mensagem de status da atualização ═══ */}
+        {/* Info sutil do último refresh */}
+        {ultimoRefresh && (
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', opacity: 0.5, marginBottom: '6px', textAlign: 'right' }}>
+            atualizado {tempoDesdeRefresh()} atrás · auto a cada 5min
+          </div>
+        )}
+
+        {/* Campo de busca */}
+        {mostrarBusca && (
+          <div style={{ marginBottom: '8px' }}>
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por remetente ou assunto..."
+              autoFocus
+              style={{
+                width: '100%', background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)', borderRadius: '6px',
+                padding: '5px 10px', fontSize: '0.8rem', color: 'var(--text-primary)',
+                fontFamily: 'var(--font-main)', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        )}
+
+        {/* Status */}
         {statusMsg && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -270,14 +414,14 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
           </div>
         )}
 
-        {/* ═══ Lista de e-mails ═══ */}
+        {/* Lista de e-mails */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {listaEmails.length === 0 ? (
+          {listaFiltrada.length === 0 ? (
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0', opacity: 0.6 }}>
-              {configurado ? 'Nenhum e-mail. Toque em atualizar para buscar.' : 'Configure seu servidor para começar.'}
+              {busca ? 'Nenhum resultado encontrado.' : configurado ? 'Nenhum e-mail. Toque em atualizar.' : 'Configure seu servidor.'}
             </p>
           ) : (
-            listaEmails.map((email) => (
+            listaFiltrada.map((email) => (
               <EmailItem
                 key={email.id}
                 email={email}
@@ -287,8 +431,8 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
           )}
         </div>
 
-        {/* ═══ Paginação ═══ */}
-        {totalPaginas > 1 && (
+        {/* Paginação */}
+        {totalPaginas > 1 && !busca && (
           <div style={{
             display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px',
             marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)',
@@ -301,9 +445,8 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
                 width: '28px', height: '28px', borderRadius: '6px',
                 border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
                 cursor: paginaAtual <= 1 ? 'not-allowed' : 'pointer',
-                opacity: paginaAtual <= 1 ? 0.3 : 1, transition: 'all 0.2s',
+                opacity: paginaAtual <= 1 ? 0.3 : 1,
               }}
-              title="Página anterior"
             >
               <FiChevronLeft style={{ fontSize: '0.85rem' }} />
             </button>
@@ -318,9 +461,8 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
                 width: '28px', height: '28px', borderRadius: '6px',
                 border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
                 cursor: paginaAtual >= totalPaginas ? 'not-allowed' : 'pointer',
-                opacity: paginaAtual >= totalPaginas ? 0.3 : 1, transition: 'all 0.2s',
+                opacity: paginaAtual >= totalPaginas ? 0.3 : 1,
               }}
-              title="Próxima página"
             >
               <FiChevronRight style={{ fontSize: '0.85rem' }} />
             </button>
@@ -328,7 +470,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
         )}
       </div>
 
-      {/* Botão flutuante para compor novo e-mail */}
+      {/* Botão flutuante para compor */}
       <button
         onClick={abrirCompor}
         style={{

@@ -90,3 +90,9 @@ select {
     transform: translateY(0);
   }
 }
+
+/* Animação de rotação para ícones de carregamento */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

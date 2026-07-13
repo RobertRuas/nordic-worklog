@@ -1,23 +1,27 @@
 import React from 'react';
-import { FiArrowLeft, FiTrash2, FiMail } from 'react-icons/fi';
+import { FiArrowLeft, FiTrash2, FiCornerUpLeft, FiShare2, FiLoader } from 'react-icons/fi';
 
 /**
  * Componente EmailRead — Nordic Worklog
- * Exibe o conteúdo completo de um e-mail com opções de voltar e excluir.
+ * Exibe o conteúdo completo de um e-mail com ações:
+ * voltar, responder, encaminhar, excluir.
  * 
  * @param {Object} email - Os dados completos do e-mail.
  * @param {function} onVoltar - Callback para voltar à lista.
  * @param {function} onExcluir - Callback para excluir o e-mail.
+ * @param {function} onResponder - Callback para responder o e-mail.
+ * @param {function} onEncaminhar - Callback para encaminhar o e-mail.
+ * @param {boolean} [carregando] - Se está carregando o corpo do e-mail.
  */
-export default function EmailRead({ email, onVoltar, onExcluir }) {
+export default function EmailRead({ email, onVoltar, onExcluir, onResponder, onEncaminhar, carregando }) {
   // Extrai nome e endereço do remetente
-  const nomeRemetente = email.de.split('<')[0].trim();
-  const emailRemetente = email.de.match(/<(.+)>/)?.[1] || '';
+  const nomeRemetente = email.de.split('<')[0].trim().replace(/"/g, '');
+  const emailRemetente = email.de.match(/<(.+)>/)?.[1] || email.de;
 
   // Formata a data completa
   const formatarDataCompleta = (data) => {
     const d = new Date(data);
-    const dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const dia = String(d.getDate()).padStart(2, '0');
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     const ano = d.getFullYear();
@@ -36,12 +40,17 @@ export default function EmailRead({ email, onVoltar, onExcluir }) {
         >
           <FiArrowLeft /> Voltar
         </button>
-        <button
-          onClick={() => { onExcluir(email.id); }}
-          style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#ef4444', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ef4444' }}
-        >
-          <FiTrash2 /> Excluir
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => onExcluir(email.id, email.uid)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem',
+              color: '#ef4444', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ef4444',
+            }}
+          >
+            <FiTrash2 /> Excluir
+          </button>
+        </div>
       </div>
 
       {/* Conteúdo do e-mail */}
@@ -79,11 +88,50 @@ export default function EmailRead({ email, onVoltar, onExcluir }) {
         </div>
 
         {/* Corpo do e-mail */}
+        {carregando ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            padding: '30px 0', color: 'var(--text-secondary)', fontSize: '0.8rem',
+          }}>
+            <FiLoader style={{ animation: 'spin 1s linear infinite' }} />
+            Carregando e-mail...
+          </div>
+        ) : (
+          <div style={{
+            fontSize: '0.82rem', color: 'var(--text-primary)',
+            lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          }}>
+            {email.corpo || '(E-mail sem conteúdo de texto)'}
+          </div>
+        )}
+
+        {/* Barra de ações inferior */}
         <div style={{
-          fontSize: '0.82rem', color: 'var(--text-primary)',
-          lineHeight: 1.6, whiteSpace: 'pre-wrap',
+          display: 'flex', gap: '8px', marginTop: '16px',
+          paddingTop: '12px', borderTop: '1px solid var(--border-color)',
         }}>
-          {email.corpo}
+          <button
+            onClick={() => onResponder(email)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              fontSize: '0.75rem', padding: '6px 12px', borderRadius: '6px',
+              border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+              background: 'var(--bg-primary)', cursor: 'pointer', transition: 'all 0.2s',
+            }}
+          >
+            <FiCornerUpLeft style={{ fontSize: '0.75rem' }} /> Responder
+          </button>
+          <button
+            onClick={() => onEncaminhar(email)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              fontSize: '0.75rem', padding: '6px 12px', borderRadius: '6px',
+              border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+              background: 'var(--bg-primary)', cursor: 'pointer', transition: 'all 0.2s',
+            }}
+          >
+            <FiShare2 style={{ fontSize: '0.75rem' }} /> Encaminhar
+          </button>
         </div>
       </div>
     </div>
