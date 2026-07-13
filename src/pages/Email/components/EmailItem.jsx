@@ -1,18 +1,17 @@
 import React from 'react';
+import { FiMail, FiEye } from 'react-icons/fi';
 
 /**
  * Componente EmailItem — Nordic Worklog
  * Representa um único e-mail na lista de entrada (inbox).
  * Exibe remetente, assunto, data e indicador de não-lido.
+ * O indicador é clicável para alternar lido/não lido.
  * 
  * @param {Object} email - Os dados do e-mail.
- * @param {string} email.de - Remetente (nome <email>).
- * @param {string} email.assunto - Assunto do e-mail.
- * @param {string} email.data - Data/hora do envio (ISO).
- * @param {boolean} email.lido - Se já foi lido.
- * @param {function} onClick - Callback ao clicar no item.
+ * @param {function} onClick - Callback ao clicar no item (abrir e-mail).
+ * @param {function} onToggleLido - Callback para alternar lido/não lido.
  */
-export default function EmailItem({ email, onClick }) {
+export default function EmailItem({ email, onClick, onToggleLido }) {
   // Extrai o nome do remetente (antes do <)
   const nomeRemetente = email.de.split('<')[0].trim();
 
@@ -38,12 +37,27 @@ export default function EmailItem({ email, onClick }) {
         cursor: 'pointer',
       }}
     >
-      {/* Indicador de não-lido (bolinha) */}
-      <div style={{
-        width: '8px', height: '8px', borderRadius: '50%',
-        marginTop: '5px', flexShrink: 0,
-        background: email.lido ? 'transparent' : 'var(--accent-color)',
-      }} />
+      {/* Indicador de lido/não lido — clicável para alternar */}
+      <div
+        onClick={(e) => {
+          e.stopPropagation(); // Não abrir o e-mail
+          if (onToggleLido) onToggleLido(email);
+        }}
+        style={{
+          width: '24px', height: '24px', borderRadius: '6px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginTop: '2px', flexShrink: 0, cursor: 'pointer',
+          color: email.lido ? 'var(--text-secondary)' : 'var(--accent-color)',
+          opacity: email.lido ? 0.4 : 1,
+          transition: 'all 0.2s',
+        }}
+        title={email.lido ? 'Marcar como não lido' : 'Marcar como lido'}
+      >
+        {email.lido
+          ? <FiEye style={{ fontSize: '0.85rem' }} />
+          : <FiMail style={{ fontSize: '0.85rem' }} />
+        }
+      </div>
 
       {/* Conteúdo do e-mail */}
       <div style={{ flex: 1, minWidth: 0 }}>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX, FiChevronLeft, FiChevronRight, FiChevronDown, FiSearch } from 'react-icons/fi';
 import EmailItem from './components/EmailItem';
 import EmailRead from './components/EmailRead';
 import EmailCompose from './components/EmailCompose';
@@ -208,6 +208,29 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     voltarLista();
   };
 
+  // Alternar lido/não lido via API
+  const handleToggleLido = async (email) => {
+    const novoStatus = !email.lido;
+
+    // Atualizar estado local imediatamente (optimistic update)
+    setEmailsApi(prev => prev.map(e =>
+      e.id === email.id ? { ...e, lido: novoStatus } : e
+    ));
+
+    // Chamar API (em background)
+    try {
+      const auth = getAuth();
+      if (auth.currentUser && email.uid) {
+        const token = await auth.currentUser.getIdToken();
+        await fetch(`${window.location.origin}/api/email/mark-read`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: email.uid, lido: novoStatus }),
+        }).catch(() => {});
+      }
+    } catch {}
+  };
+
   // Responder e-mail
   const handleResponder = (email) => {
     setModoCompor({ responderPara: email });
@@ -265,6 +288,13 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     const matchRemetente = !filtroRemetente || nomeRemetente === filtroRemetente;
     return matchBusca && matchRemetente;
   });
+
+  // ═══ Acordeão: separar lidos e não lidos ═══
+  const [acordeaoNaoLidos, setAcordeaoNaoLidos] = useState(true);
+  const [acordeaoLidos, setAcordeaoLidos] = useState(false);
+
+  const emailsNaoLidos = listaFiltrada.filter(e => !e.lido);
+  const emailsLidos = listaFiltrada.filter(e => e.lido);
 
   // ═══ Renderização condicional ═══
 
@@ -447,20 +477,88 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
           </div>
         )}
 
-        {/* Lista de e-mails */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Lista de e-mails em acordeão */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {listaFiltrada.length === 0 ? (
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0', opacity: 0.6 }}>
               {busca ? 'Nenhum resultado encontrado.' : configurado ? 'Nenhum e-mail. Toque em atualizar.' : 'Configure seu servidor.'}
             </p>
           ) : (
-            listaFiltrada.map((email) => (
-              <EmailItem
-                key={email.id}
-                email={email}
-                onClick={() => abrirEmail(email)}
-              />
-            ))
+            <>
+              {/* Seção: Não Lidos */}
+              {emailsNaoLidos.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setAcordeaoNaoLidos(!acordeaoNaoLidos)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+                      padding: '8px 10px', background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)', borderRadius: '8px',
+                      cursor: 'pointer', fontFamily: 'var(--font-main)',
+                      fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)',
+                      marginBottom: acordeaoNaoLidos ? '2px' : '0',
+                      borderBottomLeftRadius: acordeaoNaoLidos ? '0' : '8px',
+                      borderBottomRightRadius: acordeaoNaoLidos ? '0' : '8px',
+                    }}
+                  >
+                    {acordeaoNaoLidos ? <FiChevronDown style={{ fontSize: '0.7rem' }} /> : <FiChevronRight style={{ fontSize: '0.7rem' }} />}
+                    Não lidos
+                    <span style={{
+                      background: 'var(--accent-color)', color: 'var(--bg-primary)',
+                      borderRadius: '10px', padding: '1px 7px', fontSize: '0.65rem', fontWeight: 700,
+                    }}>
+                      {emailsNaoLidos.length}
+                    </span>
+                  </button>
+                  {acordeaoNaoLidos && emailsNaoLidos.map((email) => (
+                    <div key={email.id} style={{ padding: '0 8px', borderLeft: '2px solid var(--border-color)', marginLeft: '8px' }}>
+                      <EmailItem
+                        email={email}
+                        onClick={() => abrirEmail(email)}
+                        onToggleLido={handleToggleLido}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Seção: Lidos */}
+              {emailsLidos.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setAcordeaoLidos(!acordeaoLidos)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+                      padding: '8px 10px', background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)', borderRadius: '8px',
+                      cursor: 'pointer', fontFamily: 'var(--font-main)',
+                      fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)',
+                      marginBottom: acordeaoLidos ? '2px' : '0',
+                      borderBottomLeftRadius: acordeaoLidos ? '0' : '8px',
+                      borderBottomRightRadius: acordeaoLidos ? '0' : '8px',
+                    }}
+                  >
+                    {acordeaoLidos ? <FiChevronDown style={{ fontSize: '0.7rem' }} /> : <FiChevronRight style={{ fontSize: '0.7rem' }} />}
+                    Lidos
+                    <span style={{
+                      background: 'var(--border-color)', color: 'var(--text-secondary)',
+                      borderRadius: '10px', padding: '1px 7px', fontSize: '0.65rem', fontWeight: 700,
+                    }}>
+                      {emailsLidos.length}
+                    </span>
+                  </button>
+                  {acordeaoLidos && emailsLidos.map((email) => (
+                    <div key={email.id} style={{ padding: '0 8px', borderLeft: '2px solid var(--border-color)', marginLeft: '8px' }}>
+                      <EmailItem
+                        email={email}
+                        onClick={() => abrirEmail(email)}
+                        onToggleLido={handleToggleLido}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
