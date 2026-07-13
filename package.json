@@ -10,8 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "express": "^5.2.1",
     "firebase": "^12.16.0",
+    "firebase-admin": "^14.1.0",
+    "imapflow": "^1.4.7",
     "leaflet": "^1.9.4",
+    "mailparser": "^3.9.14",
+    "nodemailer": "^9.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-icons": "^5.7.0",

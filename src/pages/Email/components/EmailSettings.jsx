@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiArrowLeft, FiServer, FiLock, FiMail, FiSave, FiCheck, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
+import { getAuth } from 'firebase/auth';
 
 /**
  * Componente EmailSettings — Nordic Worklog
@@ -63,15 +64,66 @@ export default function EmailSettings({ config, salvarEmailConfig, onVoltar }) {
     return null;
   };
 
-  // ═══ Testar configuração (validação local) ═══
-  const handleTestar = () => {
+  const [testando, setTestando] = useState(false);
+
+  // ═══ Testar configuração via API backend ═══
+  const handleTestar = async () => {
     const erro = validar();
     if (erro) {
       mostrarMsg(erro, 'erro');
       return;
     }
-    // Simula verificação — no futuro será feito via backend
-    mostrarMsg('Configuração válida. Os dados serão usados ao conectar ao servidor.', 'sucesso');
+
+    // Primeiro salvar para garantir que o backend tem a config atualizada
+    setTestando(true);
+    setMensagem('');
+    try {
+      await salvarEmailConfig(form);
+
+      // Obter token do Firebase Auth
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        mostrarMsg('Sessão expirada. Faça login novamente.', 'erro');
+        return;
+      }
+
+      // Chamar a API de teste
+      const resposta = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro || 'Falha no teste');
+      }
+
+      // Montar mensagem com resultado detalhado
+      const partes = [];
+      if (dados.imap?.sucesso) partes.push('IMAP ✓');
+      else if (dados.imap?.mensagem) partes.push(`IMAP ✗`);
+      if (dados.smtp?.sucesso) partes.push('SMTP ✓');
+      else if (dados.smtp?.mensagem) partes.push(`SMTP ✗`);
+
+      if (dados.sucesso) {
+        mostrarMsg(`Conexão OK: ${partes.join(' | ')}`, 'sucesso');
+      } else {
+        const detalhes = [];
+        if (!dados.imap?.sucesso) detalhes.push(dados.imap?.mensagem || 'Erro IMAP');
+        if (!dados.smtp?.sucesso) detalhes.push(dados.smtp?.mensagem || 'Erro SMTP');
+        mostrarMsg(detalhes.join('. '), 'erro');
+      }
+    } catch (err) {
+      console.error('Erro ao testar conexão:', err);
+      mostrarMsg(err.message || 'Erro ao testar conexão', 'erro');
+    } finally {
+      setTestando(false);
+    }
   };
 
   // ═══ Salvar configuração no Firestore ═══
@@ -246,16 +298,19 @@ export default function EmailSettings({ config, salvarEmailConfig, onVoltar }) {
           {/* Botão Testar */}
           <button
             onClick={handleTestar}
+            disabled={testando}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               flex: '0 0 auto', padding: '10px 14px', fontSize: '0.8rem', fontWeight: 500,
               fontFamily: 'Outfit, sans-serif',
               backgroundColor: 'transparent', color: 'var(--text-secondary)',
               border: '1px solid var(--border-color)', borderRadius: '8px',
-              cursor: 'pointer', transition: 'all 0.2s',
+              cursor: testando ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+              opacity: testando ? 0.5 : 1,
             }}
           >
-            <FiRefreshCw style={{ fontSize: '0.75rem' }} /> Testar
+            <FiRefreshCw style={{ fontSize: '0.75rem', transition: 'transform 0.8s', transform: testando ? 'rotate(360deg)' : 'rotate(0deg)' }} />
+            {testando ? 'Testando...' : 'Testar'}
           </button>
           {/* Botão Salvar */}
           <button

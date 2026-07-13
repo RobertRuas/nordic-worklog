@@ -1,16 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
+import { FiPlus, FiSettings, FiRefreshCw, FiAlertTriangle, FiCheck, FiX } from 'react-icons/fi';
 import EmailItem from './components/EmailItem';
 import EmailRead from './components/EmailRead';
 import EmailCompose from './components/EmailCompose';
 import EmailSettings from './components/EmailSettings';
 import useEmailConfig from '../../hooks/useEmailConfig';
+import { useAuth } from '../../context/AuthContext';
+import { getAuth } from 'firebase/auth';
 
 /**
  * Página de E-Mail — Nordic Worklog
  * Cliente de e-mail com lista de entrada, leitura, composição e configurações.
- * Dados reais do Firestore (tempo real).
- * Exibe status de configuração e botão de atualizar.
+ * Busca e-mails reais do servidor IMAP via API backend.
  * 
  * @param {function} onTitleChange - Função para alterar o título do header.
  * @param {Array} emails - Lista de e-mails do Firestore.
@@ -21,6 +22,7 @@ import useEmailConfig from '../../hooks/useEmailConfig';
 export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, excluirEmail, registerGoBack }) {
   // Configuração do servidor de e-mail (do Firestore)
   const { emailConfig, loading: configLoading, salvarEmailConfig, configValida } = useEmailConfig();
+  const { user } = useAuth();
 
   // Visualização atual: 'lista', 'leitura', 'compor', 'configuracoes'
   const [view, setView] = useState('lista');
@@ -28,6 +30,9 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
   const [emailSelecionado, setEmailSelecionado] = useState(null);
   // Estado de atualização
   const [atualizando, setAtualizando] = useState(false);
+  // Mensagem de status da atualização
+  const [statusMsg, setStatusMsg] = useState('');
+  const [statusTipo, setStatusTipo] = useState(''); // 'sucesso' | 'erro'
 
   // Ref para a função voltarLista (usado pelo gesto de swipe)
   const voltarListaRef = React.useRef(null);
@@ -68,12 +73,53 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
 
   // ═══ Ações ═══
 
-  // Atualizar caixa de entrada (simula refresh — no futuro busca do servidor)
-  const handleAtualizar = useCallback(() => {
+  // Atualizar caixa de entrada — chama a API backend para buscar e-mails do IMAP
+  const handleAtualizar = useCallback(async () => {
+    if (atualizando || !configValida()) return;
+
     setAtualizando(true);
-    // Simula delay de atualização
-    setTimeout(() => setAtualizando(false), 1200);
-  }, []);
+    setStatusMsg('');
+    setStatusTipo('');
+
+    try {
+      // Obter o token do Firebase Auth
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        setStatusMsg('Sessão expirada. Faça login novamente.');
+        setStatusTipo('erro');
+        return;
+      }
+
+      // Chamar a API backend
+      const resposta = await fetch('/api/email/fetch', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro || 'Falha ao buscar e-mails');
+      }
+
+      if (dados.total > 0) {
+        setStatusMsg(`${dados.total} e-mail(is) sincronizado(s)`);
+        setStatusTipo('sucesso');
+      } else {
+        setStatusMsg('Nenhum e-mail novo');
+        setStatusTipo('sucesso');
+      }
+
+      // Limpar mensagem após 4 segundos
+      setTimeout(() => { setStatusMsg(''); setStatusTipo(''); }, 4000);
+    } catch (erro) {
+      console.error('Erro ao atualizar e-mails:', erro);
+      setStatusMsg(erro.message || 'Erro ao atualizar');
+      setStatusTipo('erro');
+    } finally {
+      setAtualizando(false);
+    }
+  }, [atualizando, configValida]);
 
   // Enviar novo e-mail
   const enviarEmail = async (novoEmail) => {
@@ -150,18 +196,18 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
             {/* Botão Atualizar */}
             <button
               onClick={handleAtualizar}
-              disabled={atualizando}
+              disabled={atualizando || !configurado}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 width: '30px', height: '30px', borderRadius: '6px',
                 border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
-                cursor: atualizando ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s', opacity: atualizando ? 0.5 : 1,
+                cursor: (atualizando || !configurado) ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s', opacity: (atualizando || !configurado) ? 0.4 : 1,
               }}
               title="Atualizar caixa de entrada"
             >
               <FiRefreshCw
-                style={{ fontSize: '0.8rem', transition: 'transform 0.6s', transform: atualizando ? 'rotate(360deg)' : 'rotate(0deg)' }}
+                style={{ fontSize: '0.8rem', transition: 'transform 0.8s', transform: atualizando ? 'rotate(360deg)' : 'rotate(0deg)' }}
               />
             </button>
             {/* Botão Configurações */}
@@ -179,11 +225,25 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
           </div>
         </div>
 
+        {/* ═══ Mensagem de status da atualização ═══ */}
+        {statusMsg && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            padding: '6px 10px', marginBottom: '8px',
+            backgroundColor: statusTipo === 'sucesso' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            borderRadius: '6px', fontSize: '0.75rem',
+            color: statusTipo === 'sucesso' ? '#22c55e' : '#ef4444',
+          }}>
+            {statusTipo === 'sucesso' ? <FiCheck style={{ fontSize: '0.7rem' }} /> : <FiX style={{ fontSize: '0.7rem' }} />}
+            {statusMsg}
+          </div>
+        )}
+
         {/* ═══ Lista de e-mails ═══ */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {emails.length === 0 ? (
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0', opacity: 0.6 }}>
-              {configurado ? 'Nenhum e-mail na caixa de entrada.' : 'Configure seu servidor para começar.'}
+              {configurado ? 'Nenhum e-mail. Toque em atualizar para buscar.' : 'Configure seu servidor para começar.'}
             </p>
           ) : (
             emails.map((email) => (
