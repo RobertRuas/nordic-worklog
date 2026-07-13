@@ -12,7 +12,7 @@ export default defineConfig({
     // Proxy /api/ para o backend Express (em produção roda no mesmo container)
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3003',
         changeOrigin: true,
       },
     },
