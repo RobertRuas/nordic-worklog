@@ -94,11 +94,19 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
 
       // Chamar a API backend (URL absoluta para compatibilidade com Safari)
       const apiUrl = `${window.location.origin}/api/email/fetch`;
-      const resposta = await fetch(apiUrl, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      let resposta;
+      try {
+        resposta = await fetch(apiUrl, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch (fetchErro) {
+        throw new Error('Servidor indisponível. Verifique sua conexão.');
+      }
 
-      const dados = await resposta.json();
+      const dados = await resposta.json().catch(() => null);
+      if (!dados) {
+        throw new Error('Resposta inválida do servidor');
+      }
 
       if (!resposta.ok) {
         throw new Error(dados.erro || 'Falha ao buscar e-mails');

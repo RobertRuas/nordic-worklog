@@ -91,15 +91,23 @@ export default function EmailSettings({ config, salvarEmailConfig, onVoltar }) {
 
       // Chamar a API de teste (URL absoluta para compatibilidade com Safari)
       const apiUrl = `${window.location.origin}/api/email/test`;
-      const resposta = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      let resposta;
+      try {
+        resposta = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (fetchErro) {
+        throw new Error('Servidor indisponível. Verifique sua conexão.');
+      }
 
-      const dados = await resposta.json();
+      const dados = await resposta.json().catch(() => null);
+      if (!dados) {
+        throw new Error('Resposta inválida do servidor');
+      }
 
       if (!resposta.ok) {
         throw new Error(dados.erro || 'Falha no teste');
