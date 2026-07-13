@@ -96,6 +96,16 @@ export default function EmailRead({ email, onVoltar, onExcluir, onResponder, onE
             <FiLoader style={{ animation: 'spin 1s linear infinite' }} />
             Carregando e-mail...
           </div>
+        ) : email.corpoHtml ? (
+          /* Renderizar HTML com estilos seguros */
+          <div
+            className="email-body"
+            style={{
+              fontSize: '0.82rem', color: 'var(--text-primary)',
+              lineHeight: 1.6, wordBreak: 'break-word', overflowWrap: 'break-word',
+            }}
+            dangerouslySetInnerHTML={{ __html: email.corpoHtml }}
+          />
         ) : (
           <div style={{
             fontSize: '0.82rem', color: 'var(--text-primary)',

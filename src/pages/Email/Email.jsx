@@ -243,12 +243,28 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
   };
 
   // ═══ Filtro de busca ═══
-  const listaFiltrada = busca
-    ? emailsApi.filter(e =>
-        e.assunto?.toLowerCase().includes(busca.toLowerCase()) ||
-        e.de?.toLowerCase().includes(busca.toLowerCase())
-      )
-    : emailsApi;
+  const [filtroRemetente, setFiltroRemetente] = useState('');
+
+  // Lista de remetentes únicos (para o filtro)
+  const remetentesUnicos = React.useMemo(() => {
+    const set = new Set();
+    emailsApi.forEach(e => {
+      const nome = e.de?.split('<')[0].trim().replace(/"/g, '') || e.de;
+      if (nome) set.add(nome);
+    });
+    return Array.from(set).sort();
+  }, [emailsApi]);
+
+  // Aplicar ambos os filtros (busca textual + remetente)
+  const listaFiltrada = emailsApi.filter(e => {
+    const nomeRemetente = e.de?.split('<')[0].trim().replace(/"/g, '') || e.de;
+    const matchBusca = !busca || (
+      e.assunto?.toLowerCase().includes(busca.toLowerCase()) ||
+      e.de?.toLowerCase().includes(busca.toLowerCase())
+    );
+    const matchRemetente = !filtroRemetente || nomeRemetente === filtroRemetente;
+    return matchBusca && matchRemetente;
+  });
 
   // ═══ Renderização condicional ═══
 
@@ -381,22 +397,39 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
           </div>
         )}
 
-        {/* Campo de busca */}
-        {mostrarBusca && (
-          <div style={{ marginBottom: '8px' }}>
+        {/* Campo de busca + filtro por remetente */}
+        {(mostrarBusca || filtroRemetente) && (
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            {/* Busca textual */}
             <input
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por remetente ou assunto..."
-              autoFocus
+              placeholder="Buscar assunto..."
+              autoFocus={mostrarBusca}
               style={{
-                width: '100%', background: 'var(--bg-primary)',
+                flex: 1, minWidth: '120px', background: 'var(--bg-primary)',
                 border: '1px solid var(--border-color)', borderRadius: '6px',
                 padding: '5px 10px', fontSize: '0.8rem', color: 'var(--text-primary)',
                 fontFamily: 'var(--font-main)', outline: 'none', boxSizing: 'border-box',
               }}
             />
+            {/* Filtro por remetente */}
+            <select
+              value={filtroRemetente}
+              onChange={(e) => setFiltroRemetente(e.target.value)}
+              style={{
+                background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                borderRadius: '6px', padding: '5px 8px', fontSize: '0.75rem',
+                color: 'var(--text-primary)', fontFamily: 'var(--font-main)',
+                outline: 'none', cursor: 'pointer', minWidth: '100px',
+              }}
+            >
+              <option value="">Todos remetentes</option>
+              {remetentesUnicos.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
           </div>
         )}
 
