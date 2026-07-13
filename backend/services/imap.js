@@ -38,7 +38,7 @@ async function parsearMensagem(msg) {
     data: parsed.date?.toISOString() || new Date().toISOString(),
     corpo: parsed.text || '',
     corpoHtml: parsed.html || '',
-    lido: msg.flags?.has('\\seen') || false,
+    lido: msg.flags?.has('\\Seen') || false,
   };
 }
 
