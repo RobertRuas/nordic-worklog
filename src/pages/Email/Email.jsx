@@ -4,6 +4,7 @@ import EmailItem from './components/EmailItem';
 import EmailRead from './components/EmailRead';
 import EmailCompose from './components/EmailCompose';
 import EmailSettings from './components/EmailSettings';
+import FolderList from './components/FolderList';
 import useEmailConfig from '../../hooks/useEmailConfig';
 import { useAuth } from '../../context/AuthContext';
 import { getAuth } from 'firebase/auth';
@@ -34,6 +35,10 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
   // ═══ E-mails vindos da API ═══
   const [emailsApi, setEmailsApi] = useState([]);
 
+  // ═══ Pastas de e-mail ═══
+  const [pastas, setPastas] = useState([]);
+  const [pastaAtual, setPastaAtual] = useState('INBOX');
+
   // ═══ Paginação ═══
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [porPagina] = useState(10);
@@ -59,7 +64,8 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
   useEffect(() => {
     if (!configValida()) return;
 
-    // Buscar imediatamente ao montar
+    // Buscar pastas e e-mails ao montar
+    buscarPastas();
     buscarEmailsPagina(1, true);
 
     // Configurar intervalo
@@ -90,7 +96,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       if (!auth.currentUser) return;
       const token = await auth.currentUser.getIdToken();
 
-      const apiUrl = `${window.location.origin}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}`;
+      const apiUrl = `${window.location.origin}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}&pasta=${encodeURIComponent(pastaAtual)}`;
       let resposta;
       try {
         resposta = await fetch(apiUrl, {
@@ -130,7 +136,25 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     } finally {
       setAtualizando(false);
     }
-  }, [configValida, porPagina, paginaAtual]);
+  }, [configValida, porPagina, pastaAtual]);
+
+  // ═══ Buscar pastas de e-mail ═══
+  const buscarPastas = useCallback(async () => {
+    if (!configValida()) return;
+    try {
+      const auth = getAuth();
+      if (!auth.currentUser) return;
+      const token = await auth.currentUser.getIdToken();
+
+      const resposta = await fetch(`${window.location.origin}/api/email/folders`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const dados = await resposta.json().catch(() => null);
+      if (dados?.sucesso && dados.pastas) {
+        setPastas(dados.pastas);
+      }
+    } catch {}
+  }, [configValida]);
 
   // ═══ Ações de e-mail ═══
 
@@ -253,6 +277,15 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
     if (onTitleChange) onTitleChange('E-Mail');
   };
   voltarListaRef.current = voltarLista;
+
+  // Selecionar pasta
+  const handleSelecionarPasta = (pasta) => {
+    if (pasta === pastaAtual) return;
+    setPastaAtual(pasta);
+    setPaginaAtual(1);
+    buscarEmailsPagina(1, true);
+    buscarPastas(); // Atualizar contadores
+  };
 
   const abrirCompor = () => {
     setModoCompor(null);
@@ -425,6 +458,15 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
           <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', opacity: 0.5, marginBottom: '6px', textAlign: 'right' }}>
             atualizado {tempoDesdeRefresh()} atrás · auto a cada 5min
           </div>
+        )}
+
+        {/* Seletor de pastas */}
+        {pastas.length > 0 && (
+          <FolderList
+            pastas={pastas}
+            pastaAtual={pastaAtual}
+            onSelecionarPasta={handleSelecionarPasta}
+          />
         )}
 
         {/* Campo de busca + filtro por remetente */}

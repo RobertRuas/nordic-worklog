@@ -43,14 +43,74 @@ async function parsearMensagem(msg) {
 }
 
 /**
- * Busca todos os e-mails da caixa de entrada (lidos e não lidos).
- * Ordenados por data (mais recente primeiro).
+ * Lista as pastas disponíveis no servidor IMAP.
+ * Retorna apenas pastas especiais (Inbox, Sent, Drafts, Trash, Junk).
  */
-export async function buscarEmails(config) {
+export async function listarPastas(config) {
   const client = criarCliente(config);
   try {
     await client.connect();
-    await client.mailboxOpen('INBOX');
+    const lista = await client.list();
+
+    // Mapear pastas especiais por tipo
+    const pastas = [];
+    const vistos = new Set();
+
+    const mapaTipos = {
+      '\\Inbox': { nome: 'Caixa de entrada', icone: 'inbox' },
+      '\\Sent': { nome: 'Enviadas', icone: 'send' },
+      '\\Drafts': { nome: 'Rascunhos', icone: 'edit' },
+      '\\Trash': { nome: 'Lixeira', icone: 'trash' },
+      '\\Junk': { nome: 'Spam', icone: 'alert' },
+    };
+
+    for (const pasta of lista) {
+      const tipo = pasta.specialUse;
+      if (tipo && mapaTipos[tipo] && !vistos.has(tipo)) {
+        vistos.add(tipo);
+        // Contar mensagens na pasta
+        let total = 0, naoLidos = 0;
+        try {
+          await client.mailboxOpen(pasta.path);
+          total = client.mailbox?.exists || 0;
+          naoLidos = client.mailbox?.specialUseExists || 0;
+        } catch {}
+
+        pastas.push({
+          path: pasta.path,
+          nome: mapaTipos[tipo].nome,
+          icone: mapaTipos[tipo].icone,
+          tipo: tipo.replace('\\', '').toLowerCase(),
+          total,
+        });
+      }
+    }
+
+    // Garantir que Inbox está sempre presente
+    if (!pastas.find(p => p.tipo === 'inbox')) {
+      pastas.unshift({ path: 'INBOX', nome: 'Caixa de entrada', icone: 'inbox', tipo: 'inbox', total: 0 });
+    }
+
+    return pastas;
+  } finally {
+    await client.logout().catch(() => {});
+  }
+}
+
+/**
+ * Busca todos os e-mails de uma pasta específica.
+ * Padrão: INBOX.
+ */
+export async function buscarEmails(config, pasta = 'INBOX') {
+  const client = criarCliente(config);
+  try {
+    await client.connect();
+    await client.mailboxOpen(pasta);
+
+    // Se a pasta está vazia, retornar array vazio
+    if (!client.mailbox?.exists) {
+      return [];
+    }
 
     const mensagens = [];
     for await (const msg of client.fetch({ all: true }, {

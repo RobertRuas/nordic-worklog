@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express';
-import { buscarEmails, buscarEmailPorUid, testarConexaoImap, marcarLido, excluirEmail } from '../services/imap.js';
+import { buscarEmails, buscarEmailPorUid, testarConexaoImap, marcarLido, excluirEmail, listarPastas } from '../services/imap.js';
 import { enviarEmail, testarConexaoSmtp } from '../services/smtp.js';
 
 const router = Router();
@@ -65,7 +65,25 @@ async function obterConfigEmail(req) {
 }
 
 // ══════════════════════════════════════════════════════════
-// GET /api/email/fetch — Buscar e-mails (com paginação)
+// GET /api/email/folders — Listar pastas de e-mail
+// ══════════════════════════════════════════════════════════
+router.get('/folders', autenticar, async (req, res) => {
+  try {
+    const config = await obterConfigEmail(req);
+    if (!config?.email || !config?.senha || !config?.imap?.servidor) {
+      return res.status(400).json({ erro: 'Configuração de e-mail incompleta' });
+    }
+
+    const pastas = await listarPastas(config);
+    res.json({ sucesso: true, pastas });
+  } catch (erro) {
+    console.error('Erro ao listar pastas:', erro.message);
+    res.status(500).json({ erro: `Falha ao listar pastas: ${erro.message}` });
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// GET /api/email/fetch — Buscar e-mails (com paginação e pasta)
 // ══════════════════════════════════════════════════════════
 router.get('/fetch', autenticar, async (req, res) => {
   try {
@@ -76,8 +94,9 @@ router.get('/fetch', autenticar, async (req, res) => {
 
     const pagina = parseInt(req.query.pagina) || 1;
     const porPagina = parseInt(req.query.porPagina) || 10;
+    const pasta = req.query.pasta || 'INBOX';
 
-    const todosEmails = await buscarEmails(config);
+    const todosEmails = await buscarEmails(config, pasta);
     const inicio = (pagina - 1) * porPagina;
     const emailsPagina = todosEmails.slice(inicio, inicio + porPagina);
 
