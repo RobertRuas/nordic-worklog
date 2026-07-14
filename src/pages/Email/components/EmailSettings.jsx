@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiArrowLeft, FiServer, FiLock, FiMail, FiSave, FiCheck, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
 import { getAuth } from 'firebase/auth';
+import { API_URL } from '../../../config/api';
 
 /**
  * Componente EmailSettings — Nordic Worklog
@@ -90,7 +91,7 @@ export default function EmailSettings({ config, salvarEmailConfig, onVoltar }) {
       const token = await auth.currentUser.getIdToken();
 
       // Chamar a API de teste (URL absoluta para compatibilidade com Safari)
-      const apiUrl = `${window.location.origin}/api/email/test`;
+      const apiUrl = `${API_URL}/api/email/test`;
       let resposta;
       try {
         resposta = await fetch(apiUrl, {

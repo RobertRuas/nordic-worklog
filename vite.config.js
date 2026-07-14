@@ -9,10 +9,10 @@ export default defineConfig({
     port: 3000,
     host: true,
     allowedHosts: ['nordic-worklog.duckdns.org'],
-    // Proxy /api/ para o backend Express (em produção roda no mesmo container)
+    // Proxy /api/ para o backend Express (Cloud Run local ou dev)
     proxy: {
       '/api': {
-        target: 'http://localhost:3003',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       },
     },

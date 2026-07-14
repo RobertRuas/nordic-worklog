@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiArrowLeft, FiSend } from 'react-icons/fi';
+import { API_URL } from '../../../config/api';
 
 /**
  * Componente EmailCompose — Nordic Worklog
@@ -69,7 +70,7 @@ export default function EmailCompose({ onVoltar, onEnviado, emailConta, responde
       }
       const token = await auth.currentUser.getIdToken();
 
-      const apiUrl = `${window.location.origin}/api/email/send`;
+      const apiUrl = `${API_URL}/api/email/send`;
       let resposta;
       try {
         resposta = await fetch(apiUrl, {

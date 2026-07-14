@@ -8,6 +8,7 @@ import FolderList from './components/FolderList';
 import useEmailConfig from '../../hooks/useEmailConfig';
 import { useAuth } from '../../context/AuthContext';
 import { getAuth } from 'firebase/auth';
+import { API_URL } from '../../config/api';
 
 /**
  * Página de E-Mail — Nordic Worklog
@@ -96,7 +97,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       if (!auth.currentUser) return;
       const token = await auth.currentUser.getIdToken();
 
-      const apiUrl = `${window.location.origin}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}&pasta=${encodeURIComponent(pastaAtual)}`;
+      const apiUrl = `${API_URL}/api/email/fetch?pagina=${pagina}&porPagina=${porPagina}&pasta=${encodeURIComponent(pastaAtual)}`;
       let resposta;
       try {
         resposta = await fetch(apiUrl, {
@@ -146,7 +147,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       if (!auth.currentUser) return;
       const token = await auth.currentUser.getIdToken();
 
-      const resposta = await fetch(`${window.location.origin}/api/email/folders`, {
+      const resposta = await fetch(`${API_URL}/api/email/folders`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const dados = await resposta.json().catch(() => null);
@@ -176,7 +177,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       const auth = getAuth();
       if (auth.currentUser && email.uid) {
         const token = await auth.currentUser.getIdToken();
-        fetch(`${window.location.origin}/api/email/mark-read`, {
+        fetch(`${API_URL}/api/email/mark-read`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: email.uid, lido: true }),
@@ -197,7 +198,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       try {
         const auth = getAuth();
         const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-        const resposta = await fetch(`${window.location.origin}/api/email/${email.uid}`, {
+        const resposta = await fetch(`${API_URL}/api/email/${email.uid}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         const dados = await resposta.json().catch(() => null);
@@ -220,7 +221,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       const auth = getAuth();
       if (auth.currentUser && uid) {
         const token = await auth.currentUser.getIdToken();
-        await fetch(`${window.location.origin}/api/email/delete/${uid}`, {
+        await fetch(`${API_URL}/api/email/delete/${uid}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` },
         }).catch(() => {});
@@ -246,7 +247,7 @@ export default function Email({ onTitleChange, emails, salvarEmail, marcarLido, 
       const auth = getAuth();
       if (auth.currentUser && email.uid) {
         const token = await auth.currentUser.getIdToken();
-        await fetch(`${window.location.origin}/api/email/mark-read`, {
+        await fetch(`${API_URL}/api/email/mark-read`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: email.uid, lido: novoStatus }),

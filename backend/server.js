@@ -2,8 +2,7 @@
  * Servidor Express — Nordic Worklog
  * 
  * Backend para operações de e-mail (IMAP/SMTP).
- * Roda no mesmo container que o Nginx (porta 3003).
- * Nginx faz proxy de /api/* para este servidor.
+ * Deploy: Cloud Run (porta dinâmica via PORT env).
  * 
  * Em produção: requer FIREBASE_SA_KEY para autenticação e Firestore.
  * Em desenvolvimento: funciona sem Firebase (modo dev).
@@ -20,7 +19,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '.env') });
 
 const app = express();
-const PORTA = 3003;
+// Cloud Run define PORT automaticamente; local usa 8080
+const PORTA = parseInt(process.env.PORT) || 8080;
+
+// ═══ CORS — permitir requests do Firebase Hosting e localhost ═══
+const ORIGINS_PERMITIDAS = [
+  'https://worklog-f1824.web.app',
+  'https://worklog-f1824.firebaseapp.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (ORIGINS_PERMITIDAS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Pre-flight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // ═══ Middleware ═══
 app.use(express.json({ limit: '1mb' }));
@@ -75,7 +99,7 @@ app.use((erro, req, res, next) => {
 });
 
 // ═══ Iniciar servidor ═══
-app.listen(PORTA, () => {
+app.listen(PORTA, '0.0.0.0', () => {
   console.log(`🚀 API Nordic Worklog rodando na porta ${PORTA}`);
   if (!firebaseAuth) {
     console.log('📋 Modo dev: autenticação desativada, config via body');
