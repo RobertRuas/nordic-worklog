@@ -1,0 +1,16 @@
+# Configuração Docker Compose para produção do Nordic Worklog
+# Build multi-estágio: Node (build) + Node/Nginx (serve frontend + API)
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_OPENWEATHER_API_KEY: ${VITE_OPENWEATHER_API_KEY}
+        VITE_WEATHER_CITY: ${VITE_WEATHER_CITY}
+    container_name: nordic_worklog_container
+    ports:
+      - "3002:3000" # Host 3002 → Container 3000 (Nginx + API)
+    environment:
+      - FIREBASE_SA_KEY=${FIREBASE_SA_KEY}
+    restart: always
