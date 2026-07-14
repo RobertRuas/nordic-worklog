@@ -29,9 +29,10 @@ RUN apk add --no-cache nginx
 
 # Remover configuração padrão do Nginx
 RUN rm -f /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/http.d/default.conf
 
 # Copiar configuração customizada do Nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/http.d/default.conf
 
 # Diretório da aplicação
 WORKDIR /app
